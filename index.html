@@ -19,7 +19,7 @@
           <span id="aiScore">0</span>
         </div>
 
-        <button id="themeToggle" class="btn icon" aria-label="Ganti ke light mode">
+        <button id="themeToggle" class="btn icon" aria-label="Switch to light mode">
           <svg class="icon-moon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path
                 d="M12,22 C17.5228475,22 22,17.5228475 22,12 C22,6.4771525 17.5228475,2 12,2 C6.4771525,2 2,6.4771525 2,12 C2,17.5228475 6.4771525,22 12,22 Z M12,20 L12,4 C16.418278,4 20,7.581722 20,12 C20,16.418278 16.418278,20 12,20 Z">
@@ -30,12 +30,21 @@
 
       <div class="controls">
         <div class="control-group">
-          <label class="select-wrap">
+          <label class="select-wrap" title="Select the difficulty level before starting the game">
             <span>Difficulty</span>
-            <select id="difficulty" aria-label="Pilih tingkat kesulitan">
+            <select id="difficulty" aria-label="Select the difficulty level">
               <option value="easy">Easy</option>
               <option value="medium" selected>Medium</option>
               <option value="hard">Hard</option>
+            </select>
+          </label>
+
+          <label class="select-wrap" title="Select the score target to win">
+            <span>Score to Win</span>
+            <select id="scoreToWin" aria-label="Select the score target">
+              <option value="5" selected>5</option>
+              <option value="10">10</option>
+              <option value="15">15</option>
             </select>
           </label>
         </div>
@@ -49,7 +58,17 @@
     </header>
 
     <main class="board">
+      <div id="resultOverlay" class="result-overlay hidden" aria-live="polite" aria-atomic="true">
+        <div class="side side-player">
+          <div id="playerResult" class="badge">WIN</div>
+        </div>
+        <div class="side side-ai">
+          <div id="aiResult" class="badge">LOSE</div>
+        </div>
+      </div>
+
       <canvas id="pong" width="800" height="400" aria-label="Pong Board"></canvas>
+
       <div id="hint" class="hint">
         <svg class="icon-info" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="10"></circle>
