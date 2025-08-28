@@ -5,10 +5,16 @@ const startBtn = document.getElementById('startBtn');
 const pauseBtn = document.getElementById('pauseBtn');
 const resetBtn = document.getElementById('resetBtn');
 const difficultySelect = document.getElementById('difficulty');
+const scoreToWinSelect = document.getElementById('scoreToWin');
 const hint = document.getElementById('hint');
 
 const themeToggle = document.getElementById('themeToggle');
 const htmlRoot = document.documentElement;
+
+const overlay = document.getElementById('resultOverlay');
+const playerResultEl = document.getElementById('playerResult');
+const aiResultEl = document.getElementById('aiResult');
+const playAgainBtn = document.getElementById('playAgainBtn');
 
 const PADDLE_WIDTH = 12;
 const PADDLE_HEIGHT = 80;
@@ -22,6 +28,8 @@ const DIFFICULTIES = {
 };
 let aiCfg = DIFFICULTIES[difficultySelect.value];
 
+let scoreToWin = parseInt(scoreToWinSelect.value, 10);
+
 let playerY = (canvas.height - PADDLE_HEIGHT) / 2;
 let aiY = (canvas.height - PADDLE_HEIGHT) / 2;
 let ballX = canvas.width / 2 - BALL_SIZE / 2;
@@ -32,6 +40,7 @@ let playerScore = 0;
 let aiScore = 0;
 let paused = false;
 let gameRunning = false;
+let gameOver = false;
 
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -60,11 +69,36 @@ function fullReset() {
   aiY = (canvas.height - PADDLE_HEIGHT) / 2;
   paused = false;
   gameRunning = false;
+  gameOver = false;
+  hideResultOverlay();
   resetBall(true);
   difficultySelect.disabled = false;
+  scoreToWinSelect.disabled = false;
   updateControls();
   hint.style.opacity = 1;
   syncScoreDOM();
+}
+
+function endGame(winner) {
+  gameOver = true;
+  gameRunning = false;
+  paused = false;
+
+  resetBall(true);
+
+  const playerWin = winner === 'player';
+  playerResultEl.textContent = playerWin ? 'WIN' : 'LOSE';
+  aiResultEl.textContent = playerWin ? 'LOSE' : 'WIN';
+
+  playerResultEl.classList.toggle('lose', !playerWin);
+  aiResultEl.classList.toggle('lose', playerWin);
+
+  showResultOverlay();
+
+  difficultySelect.disabled = false;
+  scoreToWinSelect.disabled = false;
+
+  updateControls();
 }
 
 function drawRect(x, y, w, h, color) { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); }
@@ -107,7 +141,7 @@ function draw() {
 }
 
 function update() {
-  if (!gameRunning || paused) return;
+  if (!gameRunning || paused || gameOver) return;
 
   ballX += ballSpeedX;
   ballY += ballSpeedY;
@@ -117,22 +151,37 @@ function update() {
     ballY = clamp(ballY, 0, canvas.height - BALL_SIZE);
   }
 
-  if (ballX <= PADDLE_MARGIN + PADDLE_WIDTH && ballY + BALL_SIZE > playerY && ballY < playerY + PADDLE_HEIGHT) {
+  if (
+    ballX <= PADDLE_MARGIN + PADDLE_WIDTH &&
+    ballY + BALL_SIZE > playerY &&
+    ballY < playerY + PADDLE_HEIGHT
+  ) {
     ballX = PADDLE_MARGIN + PADDLE_WIDTH;
     ballSpeedX *= -1.05;
     const collidePoint = (ballY + BALL_SIZE / 2) - (playerY + PADDLE_HEIGHT / 2);
     ballSpeedY = collidePoint * 0.22;
   }
 
-  if (ballX + BALL_SIZE >= canvas.width - PADDLE_MARGIN - PADDLE_WIDTH && ballY + BALL_SIZE > aiY && ballY < aiY + PADDLE_HEIGHT) {
+  if (
+    ballX + BALL_SIZE >= canvas.width - PADDLE_MARGIN - PADDLE_WIDTH &&
+    ballY + BALL_SIZE > aiY &&
+    ballY < aiY + PADDLE_HEIGHT
+  ) {
     ballX = canvas.width - PADDLE_MARGIN - PADDLE_WIDTH - BALL_SIZE;
     ballSpeedX *= -1.05;
     const collidePoint = (ballY + BALL_SIZE / 2) - (aiY + PADDLE_HEIGHT / 2);
     ballSpeedY = collidePoint * 0.22;
   }
 
-  if (ballX < 0) { aiScore++; syncScoreDOM(); resetBall(false); }
-  else if (ballX > canvas.width) { playerScore++; syncScoreDOM(); resetBall(false); }
+  if (ballX < 0) {
+    aiScore++; syncScoreDOM();
+    if (aiScore >= scoreToWin) { endGame('ai'); return; }
+    resetBall(false);
+  } else if (ballX > canvas.width) {
+    playerScore++; syncScoreDOM();
+    if (playerScore >= scoreToWin) { endGame('player'); return; }
+    resetBall(false);
+  }
 
   const aiCenter = aiY + PADDLE_HEIGHT / 2;
   const target = ballY + BALL_SIZE / 2;
@@ -153,20 +202,25 @@ canvas.addEventListener('mousemove', (evt) => {
 });
 
 startBtn.addEventListener('click', () => {
+  if (gameOver) {
+    fullReset();
+  }
   if (!gameRunning) {
     if (ballSpeedX === 0 && ballSpeedY === 0) serveBall();
     gameRunning = true;
     paused = false;
     difficultySelect.disabled = true;
+    scoreToWinSelect.disabled = true;
     hint.style.opacity = 0;
   } else if (paused) {
     paused = false;
   }
+  hideResultOverlay();
   updateControls();
 });
 
 pauseBtn.addEventListener('click', () => {
-  if (!gameRunning) return;
+  if (!gameRunning || gameOver) return;
   paused = !paused;
   updateControls();
 });
@@ -174,18 +228,22 @@ pauseBtn.addEventListener('click', () => {
 resetBtn.addEventListener('click', fullReset);
 
 difficultySelect.addEventListener('change', () => { aiCfg = DIFFICULTIES[difficultySelect.value]; });
+scoreToWinSelect.addEventListener('change', () => { scoreToWin = parseInt(scoreToWinSelect.value, 10) || 5; });
 
 function updateControls() {
-  startBtn.disabled = gameRunning && !paused;
-  startBtn.textContent = (!gameRunning || paused) ? 'Start Game' : 'Running...';
+  startBtn.disabled = (gameRunning && !paused) || gameOver;
+  startBtn.textContent = (!gameRunning || paused || gameOver) ? 'Start Game' : 'Running...';
   pauseBtn.textContent = paused ? 'Resume' : 'Pause';
-  pauseBtn.disabled = !gameRunning;
+  pauseBtn.disabled = !gameRunning || gameOver;
 }
 function syncScoreDOM() {
   const p = document.getElementById('playerScore');
   const a = document.getElementById('aiScore');
   if (p && a) { p.textContent = playerScore; a.textContent = aiScore; }
 }
+
+function showResultOverlay() { overlay.classList.remove('hidden'); }
+function hideResultOverlay() { overlay.classList.add('hidden'); }
 
 (function initTheme() {
   const saved = localStorage.getItem('theme');
@@ -204,7 +262,7 @@ themeToggle.addEventListener('click', () => {
 });
 
 function updateThemeButton(theme) {
-  themeToggle.setAttribute('aria-label', theme === 'dark' ? 'Ganti ke light mode' : 'Ganti ke dark mode');
+  themeToggle.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b0f14' : '#f4f6fa');
 }
