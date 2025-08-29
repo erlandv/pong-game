@@ -113,6 +113,17 @@ body {
   color: var(--muted)
 }
 
+.ft-label {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .5px;
+}
+
 .controls {
   display: grid;
   grid-template-columns: 1fr auto;
