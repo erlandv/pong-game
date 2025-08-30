@@ -111,13 +111,18 @@ const PADDLE_SPEEDS = { slow: 380, normal: 520, fast: 680 };
 let KEYBOARD_PADDLE_SPEED = PADDLE_SPEEDS[SETTINGS.gameplay.paddleSpeed];
 
 const DIFFICULTIES = {
-  easy: { speed: 260, error: 18 },
-  medium: { speed: 360, error: 12 },
-  hard: { speed: 520, error: 6 },
+  easy:   { speed: 320, error: 24, reactionDelay: 0.18, predictiveness: 0.55 },
+  medium: { speed: 460, error: 14, reactionDelay: 0.12, predictiveness: 0.78 },
+  hard:   { speed: 680, error: 8,  reactionDelay: 0.06, predictiveness: 0.95 },
 };
 let aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
+
 let aiSpeed = aiCfg.speed;
 let aiError = aiCfg.error;
+let aiReactionDelay = aiCfg.reactionDelay;
+let aiPredictiveness = aiCfg.predictiveness;
+let aiTargetY = 0;
+let aiRecalcCooldown = 0;
 
 let scoreToWin = SETTINGS.gameplay.scoreToWin;
 
@@ -138,11 +143,25 @@ let prevPlayerY = 0;
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const isSettingsOpen = () => !settingsModal.classList.contains('hidden');
-function isTypingTarget(el) {
+function isTypingTarget(el){
   return el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
 }
-function preferTouchDevice() {
+function preferTouchDevice(){
   return 'ontouchstart' in window || window.matchMedia('(pointer: coarse)').matches;
+}
+
+function predictYAtX(x0, y0, vx, vy, targetX){
+  if (vx <= 0) return cssH/2;
+  const range = cssH - BALL_SIZE;
+  const cy0 = y0 + BALL_SIZE/2;
+  const t = (targetX - (x0 + BALL_SIZE/2)) / vx;
+  if (t <= 0) return cy0;
+  const period = 2 * range;
+  let y = cy0 + vy * t;
+
+  y = ((y % period) + period) % period;
+  if (y > range) y = period - y;
+  return y;
 }
 
 function centerEntities() {
@@ -151,18 +170,20 @@ function centerEntities() {
   ballX = cssW / 2 - BALL_SIZE / 2;
   ballY = cssH / 2 - BALL_SIZE / 2;
   prevPlayerY = playerY;
+  aiTargetY = cssH / 2;
 }
 
-function serveBall() {
+function serveBall(){
   const dirX = Math.random() < 0.5 ? -1 : 1;
   ballSpeedX = BALL_SPEED_INIT * dirX;
   ballSpeedY = (Math.random() - 0.5) * (BALL_SPEED_INIT * 0.6);
+  aiForceRecalc();
 }
 
-function resetBall(scoreReset = false) {
+function resetBall(scoreReset = false){
   ballX = cssW / 2 - BALL_SIZE / 2;
   ballY = cssH / 2 - BALL_SIZE / 2;
-  if (scoreReset) {
+  if (scoreReset){
     ballSpeedX = 0;
     ballSpeedY = 0;
   } else {
@@ -170,7 +191,7 @@ function resetBall(scoreReset = false) {
   }
 }
 
-function fullReset() {
+function fullReset(){
   playerScore = 0; aiScore = 0;
   paused = false; gameRunning = false; gameOver = false; resumeCountdown = 0;
   hideResultOverlay();
@@ -182,7 +203,7 @@ function fullReset() {
   syncScoreDOM();
 }
 
-function endGame(winner) {
+function endGame(winner){
   gameOver = true; gameRunning = false; paused = false; resumeCountdown = 0;
   resetBall(true);
 
@@ -194,22 +215,26 @@ function endGame(winner) {
 
   showResultOverlay();
   updateControls();
+
+  if (playerWin){ playSfx('win'); vibrate([60, 60, 120]); }
+  else { playSfx('lose'); vibrate([30, 30, 30, 30, 30]); }
 }
 
-function startResumeCountdown(seconds = 3) {
+function startResumeCountdown(seconds = 3){
   resumeCountdown = seconds;
   paused = true;
   updateControls();
 }
 
-function applyAssistAndHeights() {
-  let playerScale = 1, aiSpeedScale = 1, aiErrorBonus = 0;
-  if (SETTINGS.gameplay.assist === 'light') { playerScale = 1.2; aiSpeedScale = 0.85; aiErrorBonus = 3; }
-  if (SETTINGS.gameplay.assist === 'strong') { playerScale = 1.4; aiSpeedScale = 0.7; aiErrorBonus = 6; }
+function applyAssistAndHeights(){
+
+  let playerScale = 1, aiSpeedScale = 1, aiErrorBonus = 0, delayScale = 1, predictPenalty = 0;
+  if (SETTINGS.gameplay.assist === 'light'){ playerScale = 1.2; aiSpeedScale = 0.9;  aiErrorBonus = 3; delayScale = 1.15; predictPenalty = 0.08; }
+  if (SETTINGS.gameplay.assist === 'strong'){ playerScale = 1.4; aiSpeedScale = 0.78; aiErrorBonus = 6; delayScale = 1.35; predictPenalty = 0.18; }
 
   const newPlayerH = Math.round(BASE_PADDLE_HEIGHT * playerScale);
   const newAiH = BASE_PADDLE_HEIGHT;
-  const keepCenter = (y, oldH, newH) => clamp(y + (oldH / 2) - (newH / 2), 0, cssH - newH);
+  const keepCenter = (y, oldH, newH) => clamp(y + (oldH/2) - (newH/2), 0, cssH - newH);
 
   const oldPlayerH = PLAYER_PADDLE_HEIGHT;
   const oldAiH = AI_PADDLE_HEIGHT;
@@ -221,16 +246,18 @@ function applyAssistAndHeights() {
 
   aiSpeed = aiCfg.speed * aiSpeedScale;
   aiError = aiCfg.error + aiErrorBonus;
+  aiReactionDelay = aiCfg.reactionDelay * delayScale;
+  aiPredictiveness = clamp(aiCfg.predictiveness - predictPenalty, 0, 1);
 }
 
-function applyKeyboardSpeed() { KEYBOARD_PADDLE_SPEED = PADDLE_SPEEDS[SETTINGS.gameplay.paddleSpeed] || 520; }
+function applyKeyboardSpeed(){ KEYBOARD_PADDLE_SPEED = PADDLE_SPEEDS[SETTINGS.gameplay.paddleSpeed] || 520; }
 
-function applyDifficulty() {
+function applyDifficulty(){
   aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
   applyAssistAndHeights();
 }
 
-function applyThemeMode(mode) {
+function applyThemeMode(mode){
   const eff = (mode === 'system')
     ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
     : mode;
@@ -239,7 +266,7 @@ function applyThemeMode(mode) {
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', eff === 'dark' ? '#0b0f14' : '#f4f6fa');
 }
-function initThemeFromSettings() {
+function initThemeFromSettings(){
   applyThemeMode(SETTINGS.display.themeMode);
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     if (SETTINGS.display.themeMode === 'system') applyThemeMode('system');
@@ -253,18 +280,95 @@ themeToggle.addEventListener('click', () => {
   applyThemeMode(SETTINGS.display.themeMode);
 });
 
-function drawRect(x, y, w, h, color) { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); }
-function drawNet() {
+let audioCtx = null, masterGain = null;
+function ensureAudio(){
+  if (!SETTINGS.audio.sfx) return;
+  if (!audioCtx){
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audioCtx = new AC();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = clamp(SETTINGS.audio.volume, 0, 1);
+    masterGain.connect(audioCtx.destination);
+  } else if (audioCtx.state === 'suspended'){
+    audioCtx.resume();
+  }
+}
+function setVolume(v){
+  if (!masterGain) return;
+  masterGain.gain.value = clamp(v, 0, 1);
+}
+function beep({freq=440, dur=0.08, type='sine', attack=0.002, release=0.08, gain=0.8, detune=0} = {}){
+  if (!SETTINGS.audio.sfx) return;
+  ensureAudio();
+  if (!audioCtx || !masterGain) return;
+
+  const t0 = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  osc.detune.value = detune;
+  g.gain.value = 0.0001;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(gain, t0 + attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + attack + release);
+
+  osc.connect(g); g.connect(masterGain);
+  osc.start(t0);
+  osc.stop(t0 + Math.max(dur, attack + release + 0.01));
+}
+function playSfx(kind){
+  if (!SETTINGS.audio.sfx) return;
+  switch(kind){
+    case 'paddle': {
+      const f = 360 + Math.random()*120;
+      beep({freq:f, type:'square', attack:0.003, release:0.09, gain:0.4});
+      break;
+    }
+    case 'wall': {
+      const f = 220 + Math.random()*60;
+      beep({freq:f, type:'triangle', attack:0.002, release:0.06, gain:0.35});
+      break;
+    }
+    case 'score': {
+      beep({freq:440, type:'sine', attack:0.004, release:0.1, gain:0.5});
+      setTimeout(()=>beep({freq:330, type:'sine', attack:0.004, release:0.12, gain:0.5}), 80);
+      break;
+    }
+    case 'win': {
+      beep({freq:523.25, type:'triangle', attack:0.005, release:0.12, gain:0.55});
+      setTimeout(()=>beep({freq:659.25, type:'triangle', attack:0.005, release:0.12, gain:0.55}), 90);
+      setTimeout(()=>beep({freq:783.99, type:'triangle', attack:0.005, release:0.16, gain:0.6}), 180);
+      break;
+    }
+    case 'lose': {
+      beep({freq:220, type:'sawtooth', attack:0.006, release:0.18, gain:0.5});
+      setTimeout(()=>beep({freq:174.61, type:'sawtooth', attack:0.006, release:0.22, gain:0.45}), 110);
+      break;
+    }
+  }
+}
+function vibrate(pattern){
+  try{
+    if (navigator.vibrate && preferTouchDevice()){
+      navigator.vibrate(pattern);
+    }
+  }catch{}
+}
+
+function drawRect(x, y, w, h, color){ ctx.fillStyle = color; ctx.fillRect(x, y, w, h); }
+function drawNet(){
   const netColor = cssVar('--net-color') || '#2c3a4b';
   for (let i = 0; i < cssH; i += 24) drawRect(cssW / 2 - 2, i, 4, 12, netColor);
 }
-function drawText(text, x, y, size = 32, align = 'left') {
+function drawText(text, x, y, size = 32, align = 'left'){
   ctx.fillStyle = cssVar('--text') || '#fff';
   ctx.font = `${size}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace`;
   ctx.textAlign = align;
   ctx.fillText(text, x, y);
 }
-function drawOverlayLabel(label) {
+function drawOverlayLabel(label){
   ctx.save();
   ctx.globalAlpha = 0.72;
   ctx.fillStyle = cssVar('--bg') || '#000';
@@ -274,7 +378,7 @@ function drawOverlayLabel(label) {
   ctx.restore();
 }
 
-function draw() {
+function draw(){
   drawRect(0, 0, cssW, cssH, cssVar('--canvas-bg') || '#0c0f14');
   drawNet();
 
@@ -287,7 +391,7 @@ function draw() {
   drawRect(ballX, ballY, BALL_SIZE, BALL_SIZE, ballColor);
 
   drawText(playerScore, cssW / 2 - 60, 50, 36, 'right');
-  drawText(aiScore, cssW / 2 + 60, 50, 36, 'left');
+  drawText(aiScore,     cssW / 2 + 60, 50, 36, 'left');
 
   if (resumeCountdown > 0) {
     const n = Math.ceil(resumeCountdown);
@@ -297,7 +401,29 @@ function draw() {
   }
 }
 
-function update(dt) {
+function aiForceRecalc(factor = 0.0){
+  aiRecalcCooldown = Math.max(0.0, aiReactionDelay * factor);
+}
+function aiUpdateTarget(){
+  if (ballSpeedX > 0){
+    const aiLineXCenter = cssW - PADDLE_MARGIN - PADDLE_WIDTH - BALL_SIZE/2;
+    const predicted = predictYAtX(ballX, ballY, ballSpeedX, ballSpeedY, aiLineXCenter);
+    const naive = ballY + BALL_SIZE/2;
+    const mix = aiPredictiveness;
+    let target = naive * (1 - mix) + predicted * mix;
+
+    const noise = (Math.random()*2 - 1) * aiError;
+    target += noise;
+
+
+    aiTargetY = clamp(target, AI_PADDLE_HEIGHT/2, cssH - AI_PADDLE_HEIGHT/2);
+  } else {
+    const noise = (Math.random()*2 - 1) * (aiError * 0.6);
+    aiTargetY = clamp(cssH/2 + noise, AI_PADDLE_HEIGHT/2, cssH - AI_PADDLE_HEIGHT/2);
+  }
+}
+
+function update(dt){
   dt = Math.min(dt, 0.05);
 
   if (resumeCountdown > 0) {
@@ -310,12 +436,12 @@ function update(dt) {
 
   if (!gameRunning || paused || gameOver) return;
 
-  if (allowKeyboard) {
+  if (allowKeyboard){
     let dir = 0;
     if (pressed.up) dir -= 1;
     if (pressed.down) dir += 1;
     if (invertY) dir *= -1;
-    if (dir !== 0) {
+    if (dir !== 0){
       playerY += dir * KEYBOARD_PADDLE_SPEED * dt;
       playerY = clamp(playerY, 0, cssH - PLAYER_PADDLE_HEIGHT);
     }
@@ -327,25 +453,27 @@ function update(dt) {
   if (ballY <= 0 || ballY + BALL_SIZE >= cssH) {
     ballSpeedY *= -1;
     ballY = clamp(ballY, 0, cssH - BALL_SIZE);
+    playSfx('wall'); vibrate([8]);
+    aiForceRecalc(0.35);
   }
 
   if (
     ballX <= PADDLE_MARGIN + PADDLE_WIDTH &&
     ballY + BALL_SIZE > playerY &&
     ballY < playerY + PLAYER_PADDLE_HEIGHT
-  ) {
+  ){
     ballX = PADDLE_MARGIN + PADDLE_WIDTH;
 
-    if (SETTINGS.gameplay.ballCurve === 'gradual') {
+    if (SETTINGS.gameplay.ballCurve === 'gradual'){
       ballSpeedX = -ballSpeedX * (1 + SETTINGS.gameplay.ballAccel);
     } else {
       ballSpeedX = -ballSpeedX;
     }
 
-    const collidePoint = (ballY + BALL_SIZE / 2) - (playerY + PLAYER_PADDLE_HEIGHT / 2);
+    const collidePoint = (ballY + BALL_SIZE/2) - (playerY + PLAYER_PADDLE_HEIGHT/2);
     ballSpeedY = collidePoint * 9;
 
-    if (SETTINGS.gameplay.spinEnabled) {
+    if (SETTINGS.gameplay.spinEnabled){
       const paddleVelY = (playerY - prevPlayerY) / dt;
       const spinCoeff = 0.12 * SETTINGS.gameplay.spinPower;
       ballSpeedY += paddleVelY * spinCoeff;
@@ -353,43 +481,54 @@ function update(dt) {
 
     ballSpeedX = Math.sign(ballSpeedX) * Math.min(Math.abs(ballSpeedX), MAX_BALL_SPEED);
     ballSpeedY = Math.sign(ballSpeedY) * Math.min(Math.abs(ballSpeedY), MAX_BALL_SPEED);
+
+    playSfx('paddle'); vibrate([12]);
+    aiForceRecalc(0.2);
   }
 
   if (
     ballX + BALL_SIZE >= cssW - PADDLE_MARGIN - PADDLE_WIDTH &&
     ballY + BALL_SIZE > aiY &&
     ballY < aiY + AI_PADDLE_HEIGHT
-  ) {
+  ){
     ballX = cssW - PADDLE_MARGIN - PADDLE_WIDTH - BALL_SIZE;
 
-    if (SETTINGS.gameplay.ballCurve === 'gradual') {
+    if (SETTINGS.gameplay.ballCurve === 'gradual'){
       ballSpeedX = -ballSpeedX * (1 + SETTINGS.gameplay.ballAccel);
     } else {
       ballSpeedX = -ballSpeedX;
     }
 
-    const collidePoint = (ballY + BALL_SIZE / 2) - (aiY + AI_PADDLE_HEIGHT / 2);
+    const collidePoint = (ballY + BALL_SIZE/2) - (aiY + AI_PADDLE_HEIGHT/2);
     ballSpeedY = collidePoint * 9;
 
     ballSpeedX = Math.sign(ballSpeedX) * Math.min(Math.abs(ballSpeedX), MAX_BALL_SPEED);
     ballSpeedY = Math.sign(ballSpeedY) * Math.min(Math.abs(ballSpeedY), MAX_BALL_SPEED);
+
+    playSfx('paddle'); vibrate([10]);
   }
 
-  if (ballX < 0) {
+  if (ballX < 0){
     aiScore++; syncScoreDOM();
-    if (aiScore >= scoreToWin) { endGame('ai'); return; }
+    playSfx('score'); vibrate([20,40,20]);
+    if (aiScore >= scoreToWin){ endGame('ai'); return; }
     resetBall(false);
-  } else if (ballX > cssW) {
+  } else if (ballX > cssW){
     playerScore++; syncScoreDOM();
-    if (playerScore >= scoreToWin) { endGame('player'); return; }
+    playSfx('score'); vibrate([20,40,20]);
+    if (playerScore >= scoreToWin){ endGame('player'); return; }
     resetBall(false);
   }
 
+  aiRecalcCooldown -= dt;
+  if (aiRecalcCooldown <= 0){
+    aiUpdateTarget();
+    aiRecalcCooldown = aiReactionDelay;
+  }
   const aiCenter = aiY + AI_PADDLE_HEIGHT / 2;
-  const target = ballY + BALL_SIZE / 2;
-  const delta = target - aiCenter;
+  const delta = aiTargetY - aiCenter;
 
-  if (Math.abs(delta) > aiError) {
+  if (Math.abs(delta) > aiError){
     const step = Math.sign(delta) * Math.min(Math.abs(delta), aiSpeed * dt);
     aiY += step;
   }
@@ -399,7 +538,7 @@ function update(dt) {
 }
 
 let lastTime = performance.now();
-function gameLoop(now) {
+function gameLoop(now){
   const dt = (now - lastTime) / 1000;
   lastTime = now;
   update(dt);
@@ -420,6 +559,7 @@ canvas.addEventListener('pointerdown', (e) => {
   if (e.pointerType !== 'touch' && preferTouchDevice()) return;
   touchActive = true;
   canvas.setPointerCapture(e.pointerId);
+  ensureAudio();
 });
 canvas.addEventListener('pointermove', (e) => {
   if (!allowTouch || !touchActive) return;
@@ -433,33 +573,35 @@ canvas.addEventListener('pointercancel', () => { if (!allowTouch) return; touchA
 
 let keyboardToastShown = false;
 document.addEventListener('keydown', (e) => {
-  if (!allowKeyboard) return;
-
   if (isSettingsOpen() || isTypingTarget(e.target)) return;
 
-  if (e.code === 'ArrowUp' || e.code === 'KeyW') { pressed.up = true; e.preventDefault(); if (!keyboardToastShown) { showToast('Keyboard active: W/S or ↑/↓ · Enter=Start · P=Pause · R=Reset'); keyboardToastShown = true; } }
-  if (e.code === 'ArrowDown' || e.code === 'KeyS') { pressed.down = true; e.preventDefault(); if (!keyboardToastShown) { showToast('Keyboard active: W/S or ↑/↓ · Enter=Start · P=Pause · R=Reset'); keyboardToastShown = true; } }
+  ensureAudio();
 
-  if (e.code === 'Enter') {
+  if (allowKeyboard){
+    if (e.code === 'ArrowUp' || e.code === 'KeyW'){ pressed.up = true; e.preventDefault(); if (!keyboardToastShown){ showToast('Keyboard active: W/S or ↑/↓ · Enter=Start · P=Pause · R=Reset'); keyboardToastShown = true; } }
+    if (e.code === 'ArrowDown' || e.code === 'KeyS'){ pressed.down = true; e.preventDefault(); if (!keyboardToastShown){ showToast('Keyboard active: W/S or ↑/↓ · Enter=Start · P=Pause · R=Reset'); keyboardToastShown = true; } }
+  }
+
+  if (e.code === 'Enter'){
     e.preventDefault();
     if (gameOver) { fullReset(); }
-    if (!gameRunning) {
+    if (!gameRunning){
       if (ballSpeedX === 0 && ballSpeedY === 0) serveBall();
       gameRunning = true;
       startResumeCountdown(3);
       hint.style.opacity = 0;
       hideResultOverlay();
       updateControls();
-    } else if (paused) {
+    } else if (paused){
       startResumeCountdown(3);
       updateControls();
     }
-  } else if (e.code === 'KeyP') {
+  } else if (e.code === 'KeyP'){
     e.preventDefault();
     if (!gameRunning || gameOver) return;
     if (!paused) paused = true; else startResumeCountdown(3);
     updateControls();
-  } else if (e.code === 'KeyR') {
+  } else if (e.code === 'KeyR'){
     e.preventDefault();
     fullReset();
   }
@@ -471,13 +613,14 @@ document.addEventListener('keyup', (e) => {
 });
 
 startBtn.addEventListener('click', () => {
+  ensureAudio();
   if (gameOver) { fullReset(); }
-  if (!gameRunning) {
+  if (!gameRunning){
     if (ballSpeedX === 0 && ballSpeedY === 0) serveBall();
     gameRunning = true;
     startResumeCountdown(3);
     hint.style.opacity = 0;
-  } else if (paused) {
+  } else if (paused){
     startResumeCountdown(3);
   }
   hideResultOverlay();
@@ -492,24 +635,24 @@ pauseBtn.addEventListener('click', () => {
 
 resetBtn.addEventListener('click', fullReset);
 
-function updateControls() {
+function updateControls(){
   startBtn.disabled = (gameRunning && !paused && resumeCountdown === 0) || gameOver;
   startBtn.textContent = (!gameRunning || paused || resumeCountdown > 0 || gameOver) ? 'Start Game' : 'Running...';
   pauseBtn.textContent = (paused && resumeCountdown === 0) ? 'Resume' : 'Pause';
   pauseBtn.disabled = !gameRunning || gameOver || resumeCountdown > 0;
 }
-function syncScoreDOM() {
+function syncScoreDOM(){
   const p = document.getElementById('playerScore');
   const a = document.getElementById('aiScore');
-  if (p && a) { p.textContent = playerScore; a.textContent = aiScore; }
+  if (p && a){ p.textContent = playerScore; a.textContent = aiScore; }
 }
-function updateFTLabel() { if (ftLabel) ftLabel.textContent = `FT${scoreToWin}`; }
+function updateFTLabel(){ if (ftLabel) ftLabel.textContent = `FT${scoreToWin}`; }
 
-function showResultOverlay() { overlay.classList.remove('hidden'); }
-function hideResultOverlay() { overlay.classList.add('hidden'); }
+function showResultOverlay(){ overlay.classList.remove('hidden'); }
+function hideResultOverlay(){ overlay.classList.add('hidden'); }
 
-function autoPauseIfRunning() {
-  if (gameRunning && !paused && !gameOver && resumeCountdown === 0) {
+function autoPauseIfRunning(){
+  if (gameRunning && !paused && !gameOver && resumeCountdown === 0){
     paused = true;
     updateControls();
   }
@@ -517,30 +660,30 @@ function autoPauseIfRunning() {
 window.addEventListener('blur', autoPauseIfRunning);
 document.addEventListener('visibilitychange', () => { if (document.hidden) autoPauseIfRunning(); });
 
-function loadSettings() {
-  try {
+function loadSettings(){
+  try{
     const raw = localStorage.getItem('pong.settings.v1');
     if (!raw) return structuredClone(DEFAULT_SETTINGS);
     const parsed = JSON.parse(raw);
     return {
-      gameplay: { ...DEFAULT_SETTINGS.gameplay, ...(parsed.gameplay || {}) },
-      audio: { ...DEFAULT_SETTINGS.audio, ...(parsed.audio || {}) },
-      display: { ...DEFAULT_SETTINGS.display, ...(parsed.display || {}) },
-      controls: { ...DEFAULT_SETTINGS.controls, ...(parsed.controls || {}) },
+      gameplay: { ...DEFAULT_SETTINGS.gameplay, ...(parsed.gameplay||{}) },
+      audio: { ...DEFAULT_SETTINGS.audio, ...(parsed.audio||{}) },
+      display: { ...DEFAULT_SETTINGS.display, ...(parsed.display||{}) },
+      controls: { ...DEFAULT_SETTINGS.controls, ...(parsed.controls||{}) },
     };
-  } catch (e) {
+  }catch(e){
     return structuredClone(DEFAULT_SETTINGS);
   }
 }
-function saveSettings() {
+function saveSettings(){
   localStorage.setItem('pong.settings.v1', JSON.stringify(SETTINGS));
 }
 
-function openSettings(initialTab = 'gameplay') {
-  if (gameRunning && !paused && resumeCountdown === 0) { paused = true; updateControls(); }
+function openSettings(initialTab='gameplay'){
+  if (gameRunning && !paused && resumeCountdown === 0){ paused = true; updateControls(); }
 
   tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === initialTab));
-  Object.entries(panels).forEach(([k, el]) => el.classList.toggle('active', k === initialTab));
+  Object.entries(panels).forEach(([k,el]) => el.classList.toggle('active', k===initialTab));
 
   optDifficulty.value = SETTINGS.gameplay.difficulty;
   optScore.value = String(SETTINGS.gameplay.scoreToWin);
@@ -562,10 +705,11 @@ function openSettings(initialTab = 'gameplay') {
   gameplayLockHint.style.display = gameRunning && !gameOver ? 'block' : 'none';
   settingsModal.classList.remove('hidden');
 }
-function closeSettings() { settingsModal.classList.add('hidden'); }
+function closeSettings(){ settingsModal.classList.add('hidden'); }
 
-function gatherSettingsFromUI() {
+function gatherSettingsFromUI(){
   const next = structuredClone(SETTINGS);
+
   next.gameplay.difficulty = optDifficulty.value;
   next.gameplay.scoreToWin = parseInt(optScore.value, 10) || 5;
   next.gameplay.paddleSpeed = optPaddleSpeed.value;
@@ -588,24 +732,29 @@ function gatherSettingsFromUI() {
   return next;
 }
 
-function gameplayChanged(next, curr) {
+function gameplayChanged(next, curr){
   return next.gameplay.difficulty !== curr.gameplay.difficulty ||
-    next.gameplay.scoreToWin !== curr.gameplay.scoreToWin ||
-    next.gameplay.paddleSpeed !== curr.gameplay.paddleSpeed ||
-    next.gameplay.ballCurve !== curr.gameplay.ballCurve ||
-    Math.abs(next.gameplay.ballAccel - curr.gameplay.ballAccel) > 1e-6 ||
-    next.gameplay.spinEnabled !== curr.gameplay.spinEnabled ||
-    Math.abs(next.gameplay.spinPower - curr.gameplay.spinPower) > 1e-6 ||
-    next.gameplay.assist !== curr.gameplay.assist;
+         next.gameplay.scoreToWin !== curr.gameplay.scoreToWin ||
+         next.gameplay.paddleSpeed !== curr.gameplay.paddleSpeed ||
+         next.gameplay.ballCurve   !== curr.gameplay.ballCurve   ||
+         Math.abs(next.gameplay.ballAccel - curr.gameplay.ballAccel) > 1e-6 ||
+         next.gameplay.spinEnabled !== curr.gameplay.spinEnabled ||
+         Math.abs(next.gameplay.spinPower - curr.gameplay.spinPower) > 1e-6 ||
+         next.gameplay.assist      !== curr.gameplay.assist;
 }
-function controlsChanged(next, curr) {
+function controlsChanged(next, curr){
   return next.controls.scheme !== curr.controls.scheme ||
-    next.controls.invertY !== curr.controls.invertY;
+         next.controls.invertY !== curr.controls.invertY;
+}
+function audioChanged(next, curr){
+  return next.audio.sfx !== curr.audio.sfx ||
+         Math.abs(next.audio.volume - curr.audio.volume) > 1e-6;
 }
 
-function applySettings(next, { confirmRestartIfNeeded = true } = {}) {
+function applySettings(next, {confirmRestartIfNeeded=true} = {}){
   const needRestart = gameplayChanged(next, SETTINGS);
   const controlsDiff = controlsChanged(next, SETTINGS);
+  const audioDiff = audioChanged(next, SETTINGS);
 
   SETTINGS = next;
   saveSettings();
@@ -615,10 +764,17 @@ function applySettings(next, { confirmRestartIfNeeded = true } = {}) {
   hiDPIEnabled = !!SETTINGS.display.hiDPI;
   if (hiChanged) resizeCanvas();
 
-  if (needRestart && gameRunning && !gameOver && confirmRestartIfNeeded) {
-    const ok = window.confirm('Changing gameplay settings will restart the match. Continue?');
-    if (!ok) { openSettings('gameplay'); return; }
+  if (audioDiff){
+    if (!SETTINGS.audio.sfx && audioCtx && audioCtx.state !== 'closed'){
+    } else {
+      ensureAudio();
+      setVolume(SETTINGS.audio.volume);
+    }
+  }
 
+  if (needRestart && gameRunning && !gameOver && confirmRestartIfNeeded){
+    const ok = window.confirm('Changing gameplay settings will restart the match. Continue?');
+    if (!ok){ openSettings('gameplay'); return; }
     aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
     scoreToWin = SETTINGS.gameplay.scoreToWin;
     applyKeyboardSpeed();
@@ -633,7 +789,7 @@ function applySettings(next, { confirmRestartIfNeeded = true } = {}) {
     updateFTLabel();
   }
 
-  if (controlsDiff) {
+  if (controlsDiff){
     invertY = !!SETTINGS.controls.invertY;
     recomputeControlPermissions(true);
   }
@@ -645,11 +801,11 @@ settingsCancel.addEventListener('click', closeSettings);
 settingsBackdrop.addEventListener('click', closeSettings);
 settingsApply.addEventListener('click', () => {
   const next = gatherSettingsFromUI();
-  applySettings(next, { confirmRestartIfNeeded: true });
+  applySettings(next, {confirmRestartIfNeeded:true});
   closeSettings();
 });
 settingsDefaults.addEventListener('click', () => {
-  applySettings(structuredClone(DEFAULT_SETTINGS), { confirmRestartIfNeeded: true });
+  applySettings(structuredClone(DEFAULT_SETTINGS), {confirmRestartIfNeeded:true});
   closeSettings();
 });
 
@@ -664,19 +820,19 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !settingsModal.classList.contains('hidden')) closeSettings();
 });
 
-function recomputeControlPermissions(showToastOnChange = false) {
+function recomputeControlPermissions(showToastOnChange = false){
   const scheme = SETTINGS.controls.scheme;
 
   allowMouse = allowKeyboard = allowTouch = false;
-  if (scheme === 'mouse') { allowMouse = true; }
-  else if (scheme === 'keyboard') { allowKeyboard = true; }
-  else if (scheme === 'touch') { allowTouch = true; }
+  if (scheme === 'mouse'){ allowMouse = true; }
+  else if (scheme === 'keyboard'){ allowKeyboard = true; }
+  else if (scheme === 'touch'){ allowTouch = true; }
   else {
-    if (preferTouchDevice()) { allowTouch = true; }
+    if (preferTouchDevice()){ allowTouch = true; }
     else { allowMouse = true; allowKeyboard = true; }
   }
 
-  if (showToastOnChange) {
+  if (showToastOnChange){
     if (allowKeyboard && allowMouse) showToast('Control: Auto (Keyboard + Mouse)');
     else if (allowTouch) showToast('Control: Touch (drag to move paddle)');
     else if (allowKeyboard) showToast('Control: Keyboard active (W/S or ↑/↓)');
@@ -685,7 +841,7 @@ function recomputeControlPermissions(showToastOnChange = false) {
 }
 
 let toastTimer = null;
-function showToast(msg) {
+function showToast(msg){
   if (!toastEl) return;
   toastEl.textContent = msg;
   toastEl.classList.add('show');
@@ -693,7 +849,7 @@ function showToast(msg) {
   toastTimer = setTimeout(() => { toastEl.classList.remove('show'); }, 2400);
 }
 
-(function boot() {
+(function boot(){
   initThemeFromSettings();
   hiDPIEnabled = !!SETTINGS.display.hiDPI;
   resizeCanvas();
