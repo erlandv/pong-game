@@ -1,17 +1,20 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <title>Classic PONG Game</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0f14" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="shell">
     <header class="appbar">
       <div class="brandbar">
-        <h1 class="brand">PONG Game</h1>
+        <h1 class="brand">PONG</h1>
 
         <div class="score-display" aria-live="polite" aria-atomic="true" title="Score">
           <span id="playerScore">0</span>
@@ -20,16 +23,26 @@
           <span id="ftLabel" class="ft-label">FT5</span>
         </div>
 
-        <button id="themeToggle" class="btn icon" aria-label="switch to light mode">
-          <svg class="icon-moon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path
-                d="M12,22 C17.5228475,22 22,17.5228475 22,12 C22,6.4771525 17.5228475,2 12,2 C6.4771525,2 2,6.4771525 2,12 C2,17.5228475 6.4771525,22 12,22 Z M12,20 L12,4 C16.418278,4 20,7.581722 20,12 C20,16.418278 16.418278,20 12,20 Z">
-              </path>
+        <div class="header-actions">
+          <button id="themeToggle" class="btn icon" aria-label="Switch color theme">
+            <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12,22 C17.5228475,22 22,17.5228475 22,12 C22,6.4771525 17.5228475,2 12,2 C6.4771525,2 2,6.4771525 2,12 C2,17.5228475 6.4771525,22 12,22 Z M12,20 L12,4 C16.418278,4 20,7.581722 20,12 C20,16.418278 16.418278,20 12,20 Z"></path>
             </svg>
-        </button>
+            <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="display: none;">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+          </button>
 
-        <button id="settingsBtn" class="btn icon" aria-label="Open Settings">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <button id="settingsBtn" class="btn icon" aria-label="Open Settings">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3"></circle>
             <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33
                      1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06
@@ -39,110 +52,148 @@
                      1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9
                      c0 .66.39 1.26 1 1.51H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"></path>
           </svg>
-        </button>
+          </button>
+        </div>
       </div>
 
       <div class="controls">
         <div class="button-group">
-          <button id="startBtn" class="btn primary">Start Game</button>
-          <button id="pauseBtn" class="btn">Pause</button>
-          <button id="resetBtn" class="btn ghost">Reset</button>
+          <button id="startBtn" class="btn primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            Start Game
+          </button>
+          <button id="pauseBtn" class="btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+            Pause
+          </button>
+          <button id="resetBtn" class="btn ghost">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+            </svg>
+            Reset
+          </button>
         </div>
       </div>
     </header>
 
     <main class="board">
       <div id="resultOverlay" class="result-overlay hidden" aria-live="polite" aria-atomic="true">
-        <div class="side side-player">
-          <div id="playerResult" class="badge">WIN</div>
-        </div>
-        <div class="side side-ai">
-          <div id="aiResult" class="badge">LOSE</div>
+        <div class="result-content">
+          <div class="result-badge">
+            <div class="side side-player">
+              <div class="player-label">PLAYER</div>
+              <div id="playerResult" class="badge">WIN</div>
+            </div>
+            <div class="vs-separator">VS</div>
+            <div class="side side-ai">
+              <div class="ai-label">AI</div>
+              <div id="aiResult" class="badge">LOSE</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <canvas id="pong" width="800" height="400" aria-label="Pong Board"></canvas>
-
-      <div id="hint" class="hint">
-        <svg class="icon-info" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="16" x2="12" y2="12"></line>
-          <line x1="12" y1="8" x2="12.01" y2="8"></line>
-        </svg>
-        Press <b>Start Game</b> to begin.
+      <div class="canvas-container">
+        <canvas id="pong" width="800" height="400" aria-label="Pong game board"></canvas>
+        <div id="hint" class="hint">
+          <svg class="icon-info" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          Press <b>Start Game</b> to begin
+        </div>
       </div>
 
       <div id="statsBar" class="stats">
         <div class="stat">
-          <span>Rally</span>
-          <b><span id="statRally">0</span>/<span id="statMaxRally">0</span></b>
+          <span class="stat-label">Rally</span>
+          <span class="stat-value"><span id="statRally">0</span>/<span id="statMaxRally">0</span></span>
         </div>
         <div class="stat">
-          <span>Ball Speed</span>
-          <b><span id="statSpeed">0</span> px/s</b>
+          <span class="stat-label">Ball Speed</span>
+          <span class="stat-value"><span id="statSpeed">0</span> px/s</span>
         </div>
         <div class="stat">
-          <span>Hits P/AI</span>
-          <b><span id="statHitsP">0</span>/<span id="statHitsAI">0</span></b>
+          <span class="stat-label">Hits P/AI</span>
+          <span class="stat-value"><span id="statHitsP">0</span>/<span id="statHitsAI">0</span></span>
         </div>
         <div class="stat">
-          <span>Walls</span>
-          <b id="statWalls">0</b>
+          <span class="stat-label">Walls</span>
+          <span class="stat-value" id="statWalls">0</span>
         </div>
         <div class="stat">
-          <span>Time</span>
-          <b id="statTime">00:00</b>
+          <span class="stat-label">Time</span>
+          <span class="stat-value" id="statTime">00:00</span>
         </div>
-        <button id="clearStats" class="btn tiny ghost" aria-label="Clear stats">Clear</button>
+        <button id="clearStats" class="btn tiny ghost" aria-label="Clear stats">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18"></path>
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+          </svg>
+          Clear
+        </button>
       </div>
 
       <section class="adv-stats">
         <header class="adv-head">
           <h3>Advanced Stats</h3>
           <div class="adv-actions">
-            <button id="resetHistory" class="btn tiny ghost">Reset History</button>
+            <button id="resetHistory" class="btn tiny ghost">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
+              </svg>
+              Reset History
+            </button>
           </div>
         </header>
 
         <div class="adv-grid">
           <div class="adv-kpi">
-            <span>Games</span>
-            <b id="kpiGames">0</b>
+            <span class="kpi-label">Games</span>
+            <span class="kpi-value" id="kpiGames">0</span>
           </div>
           <div class="adv-kpi">
-            <span>Wins</span>
-            <b id="kpiWins">0</b>
+            <span class="kpi-label">Wins</span>
+            <span class="kpi-value" id="kpiWins">0</span>
           </div>
           <div class="adv-kpi">
-            <span>Losses</span>
-            <b id="kpiLosses">0</b>
+            <span class="kpi-label">Losses</span>
+            <span class="kpi-value" id="kpiLosses">0</span>
           </div>
           <div class="adv-kpi">
-            <span>Win Rate</span>
-            <b id="kpiWinRate">0%</b>
+            <span class="kpi-label">Win Rate</span>
+            <span class="kpi-value" id="kpiWinRate">0%</span>
           </div>
           <div class="adv-kpi">
-            <span>Average Rally</span>
-            <b id="kpiAvgRally">0.0</b>
+            <span class="kpi-label">Avg Rally</span>
+            <span class="kpi-value" id="kpiAvgRally">0.0</span>
           </div>
         </div>
 
         <div class="heatmaps">
           <div class="heatcard">
             <div class="heat-head">
-              <span>Contact Heatmap — Player</span>
+              <span>Player Contact Heatmap</span>
             </div>
             <canvas id="heatPlayer" class="heat" width="600" height="90" aria-label="Ball contact heatmap on player paddle"></canvas>
           </div>
           <div class="heatcard">
             <div class="heat-head">
-              <span>Contact Heatmap — AI</span>
+              <span>AI Contact Heatmap</span>
             </div>
             <canvas id="heatAI" class="heat" width="600" height="90" aria-label="Ball contact heatmap on AI paddle"></canvas>
           </div>
         </div>
       </section>
-
     </main>
   </div>
 
@@ -150,10 +201,9 @@
     <div id="settingsBackdrop" class="backdrop"></div>
     <div class="modal-card">
       <header class="modal-header">
-        <h2 id="settingsTitle">Settings</h2>
+        <h2 id="settingsTitle">Game Settings</h2>
         <button id="settingsClose" class="btn icon" aria-label="Close Settings">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
@@ -167,144 +217,170 @@
         <button class="tab" data-tab="display" role="tab">Display</button>
       </nav>
 
-      <section id="panel-gameplay" class="panel active">
-        <div class="form-row">
-          <label for="optDifficulty">Difficulty</label>
-          <select id="optDifficulty">
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
-          </select>
-        </div>
-
-        <div class="form-row">
-          <label for="optScore">Score to Win</label>
-          <select id="optScore">
-            <option value="5">5</option>
-            <option value="10">10</option>
-            <option value="15">15</option>
-          </select>
-        </div>
-
-        <div class="form-row">
-          <label for="optPaddleSpeed">Paddle Speed</label>
-          <select id="optPaddleSpeed">
-            <option value="slow">Slow</option>
-            <option value="normal" selected>Normal</option>
-            <option value="fast">Fast</option>
-          </select>
-        </div>
-
-        <div class="form-row">
-          <label for="optBallCurve">Ball Speed Curve</label>
-          <select id="optBallCurve">
-            <option value="static">Static</option>
-            <option value="gradual" selected>Gradual (accelerate per hit)</option>
-          </select>
-        </div>
-
-        <div class="form-row">
-          <label for="optBallAccel">Accel per hit</label>
-          <input type="range" id="optBallAccel" min="0" max="0.15" step="0.01" value="0.05" />
-        </div>
-
-        <div class="form-row">
-          <label class="switch">
-            <input type="checkbox" id="optSpinEnabled" checked />
-            <span>Enable Spin/English</span>
-          </label>
-        </div>
-
-        <div class="form-row">
-          <label for="optSpinPower">Spin intensity</label>
-          <input type="range" id="optSpinPower" min="0" max="1" step="0.01" value="0.6" />
-        </div>
-
-        <div class="form-row">
-          <label for="optAssist">Assist Mode</label>
-          <select id="optAssist">
-            <option value="off" selected>Off (classic)</option>
-            <option value="light">Light assist</option>
-            <option value="strong">Strong assist</option>
-          </select>
-        </div>
-
-        <p class="hint small" id="gameplayLockHint">Changing gameplay settings will restart the match.</p>
-      </section>
-
-      <section id="panel-controls" class="panel">
-        <div class="form-row">
-          <label>Control Scheme</label>
-          <div class="radio-col">
-            <label><input type="radio" name="ctrlScheme" value="auto" checked> Auto (Desktop: Keyboard+Mouse, Mobile: Touch)</label>
-            <label><input type="radio" name="ctrlScheme" value="mouse"> Mouse</label>
-            <label><input type="radio" name="ctrlScheme" value="keyboard"> Keyboard</label>
-            <label><input type="radio" name="ctrlScheme" value="touch"> Touch</label>
+      <div class="modal-content">
+        <section id="panel-gameplay" class="panel active">
+          <div class="form-row">
+            <label for="optDifficulty">Difficulty</label>
+            <select id="optDifficulty">
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
           </div>
-        </div>
 
-        <div class="form-row">
-          <label class="switch">
-            <input type="checkbox" id="optInvertY" />
-            <span>Invert Y (reverse up/down direction)</span>
-          </label>
-        </div>
-
-        <div class="form-row">
-          <div class="hint small">
-            <div><b>Keyboard:</b> W/S or ↑/↓ to move, <kbd>Enter</kbd> Start, <kbd>P</kbd> Pause, <kbd>R</kbd> Reset.</div>
-            <div><b>Mouse/Touch:</b> move the pointer/drag on the canvas area.</div>
+          <div class="form-row">
+            <label for="optScore">Score to Win</label>
+            <select id="optScore">
+              <option value="5">5 Points</option>
+              <option value="10">10 Points</option>
+              <option value="15">15 Points</option>
+            </select>
           </div>
-        </div>
-      </section>
 
-      <section id="panel-audio" class="panel">
-        <div class="form-row">
-          <label class="switch">
-            <input type="checkbox" id="optSfx" checked>
-            <span>Sound Effects</span>
-          </label>
-        </div>
-        <div class="form-row">
-          <label for="optVolume">Volume</label>
-          <input type="range" id="optVolume" min="0" max="1" step="0.01" value="0.7" />
-        </div>
-        <p class="hint small">SFX includes hit, wall, score, win/lose, and countdown 3-2-1.</p>
-      </section>
-
-      <section id="panel-display" class="panel">
-        <div class="form-row">
-          <label>Theme</label>
-          <div class="radio-row">
-            <label><input type="radio" name="themeMode" value="system"> System</label>
-            <label><input type="radio" name="themeMode" value="light"> Light</label>
-            <label><input type="radio" name="themeMode" value="dark"> Dark</label>
+          <div class="form-row">
+            <label for="optPaddleSpeed">Paddle Speed</label>
+            <select id="optPaddleSpeed">
+              <option value="slow">Slow</option>
+              <option value="normal" selected>Normal</option>
+              <option value="fast">Fast</option>
+            </select>
           </div>
-        </div>
 
-        <div class="form-row">
-          <label class="switch">
-            <input type="checkbox" id="optHiDPI" checked />
-            <span>High-DPI rendering</span>
-          </label>
-        </div>
+          <div class="form-row">
+            <label for="optBallCurve">Ball Speed</label>
+            <select id="optBallCurve">
+              <option value="static">Static</option>
+              <option value="gradual" selected>Gradual Acceleration</option>
+            </select>
+          </div>
 
-        <div class="form-row">
-          <label for="optTrail">Trail Intensity</label>
-          <select id="optTrail">
-            <option value="off">Off</option>
-            <option value="low">Low</option>
-            <option value="medium" selected>Medium</option>
-            <option value="high">High</option>
-          </select>
-        </div>
-      </section>
+          <div class="form-row">
+            <label for="optBallAccel">Acceleration per Hit</label>
+            <div class="slider-container">
+              <input type="range" id="optBallAccel" min="0" max="0.15" step="0.01" value="0.05" />
+              <span class="slider-value" id="optBallAccelValue">0.05</span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label class="switch">
+              <input type="checkbox" id="optSpinEnabled" checked />
+              <span class="switch-label">Enable Spin Effect</span>
+            </label>
+          </div>
+
+          <div class="form-row">
+            <label for="optSpinPower">Spin Intensity</label>
+            <div class="slider-container">
+              <input type="range" id="optSpinPower" min="0" max="1" step="0.01" value="0.6" />
+              <span class="slider-value" id="optSpinPowerValue">0.6</span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label for="optAssist">Assist Mode</label>
+            <select id="optAssist">
+              <option value="off" selected>Off (Classic)</option>
+              <option value="light">Light Assist</option>
+              <option value="strong">Strong Assist</option>
+            </select>
+          </div>
+
+          <p class="hint small" id="gameplayLockHint">Changing gameplay settings will restart the current match.</p>
+        </section>
+
+        <section id="panel-controls" class="panel">
+          <div class="form-row">
+            <label>Control Scheme</label>
+            <div class="radio-col">
+              <label class="radio-option"><input type="radio" name="ctrlScheme" value="auto" checked> <span>Auto-Detect</span></label>
+              <label class="radio-option"><input type="radio" name="ctrlScheme" value="mouse"> <span>Mouse</span></label>
+              <label class="radio-option"><input type="radio" name="ctrlScheme" value="keyboard"> <span>Keyboard</span></label>
+              <label class="radio-option"><input type="radio" name="ctrlScheme" value="touch"> <span>Touch</span></label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label class="switch">
+              <input type="checkbox" id="optInvertY" />
+              <span class="switch-label">Invert Y Axis</span>
+            </label>
+          </div>
+
+          <div class="keyboard-hints">
+            <h4>Keyboard Controls</h4>
+            <div class="keyboard-grid">
+              <div class="key-hint">
+                <kbd>Enter</kbd>
+                <span>Start Game</span>
+              </div>
+              <div class="key-hint">
+                <kbd>P</kbd>
+                <span>Pause</span>
+              </div>
+              <div class="key-hint">
+                <kbd>R</kbd>
+                <span>Reset</span>
+              </div>
+              <div class="key-hint">
+                <kbd>W</kbd><kbd>S</kbd> or <kbd>↑</kbd><kbd>↓</kbd>
+                <span>Move Paddle</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="panel-audio" class="panel">
+          <div class="form-row">
+            <label class="switch">
+              <input type="checkbox" id="optSfx" checked>
+              <span class="switch-label">Sound Effects</span>
+            </label>
+          </div>
+          <div class="form-row">
+            <label for="optVolume">Volume Level</label>
+            <div class="slider-container">
+              <input type="range" id="optVolume" min="0" max="1" step="0.01" value="0.7" />
+              <span class="slider-value" id="optVolumeValue">70%</span>
+            </div>
+          </div>
+          <p class="hint small">Sound effects include paddle hits, wall bounces, scoring, and game notifications.</p>
+        </section>
+
+        <section id="panel-display" class="panel">
+          <div class="form-row">
+            <label>Theme Preference</label>
+            <div class="radio-row">
+              <label class="radio-option"><input type="radio" name="themeMode" value="system"> <span>System</span></label>
+              <label class="radio-option"><input type="radio" name="themeMode" value="light"> <span>Light</span></label>
+              <label class="radio-option"><input type="radio" name="themeMode" value="dark"> <span>Dark</span></label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label class="switch">
+              <input type="checkbox" id="optHiDPI" checked />
+              <span class="switch-label">High-DPI Rendering</span>
+            </label>
+          </div>
+
+          <div class="form-row">
+            <label for="optTrail">Ball Trail Intensity</label>
+            <select id="optTrail">
+              <option value="off">Off</option>
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </section>
+      </div>
 
       <footer class="modal-footer">
-        <button id="settingsDefaults" class="btn ghost">Defaults</button>
+        <button id="settingsDefaults" class="btn ghost">Restore Defaults</button>
         <div class="spacer"></div>
         <button id="settingsCancel" class="btn">Cancel</button>
-        <button id="settingsApply" class="btn primary">Apply</button>
+        <button id="settingsApply" class="btn primary">Apply Changes</button>
       </footer>
     </div>
   </div>

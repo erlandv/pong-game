@@ -333,9 +333,12 @@ function applyThemeMode(mode){
     ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
     : mode;
   htmlRoot.setAttribute('data-theme', eff);
-  themeToggle.setAttribute('aria-label', eff === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+  
+  const isDark = eff === 'dark';
+  themeToggle.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+  
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', eff === 'dark' ? '#0b0f14' : '#f4f6fa');
+  if (meta) meta.setAttribute('content', isDark ? '#0f172a' : '#f8fafc');
 }
 function initThemeFromSettings(){
   applyThemeMode(SETTINGS.display.themeMode);
@@ -403,12 +406,12 @@ function vibrate(pattern){ try{ if (navigator.vibrate && preferTouchDevice()) na
 
 function drawRect(x, y, w, h, color){ ctx.fillStyle = color; ctx.fillRect(x, y, w, h); }
 function drawNet(){
-  const netColor = cssVar('--net-color') || '#2c3a4b';
+  const netColor = cssVar('--net-color') || '#334155';
   for (let i = 0; i < cssH; i += 24) drawRect(cssW / 2 - 2, i, 4, 12, netColor);
 }
 function drawText(text, x, y, size = 32, align = 'left'){
   ctx.fillStyle = cssVar('--text') || '#fff';
-  ctx.font = `${size}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace`;
+  ctx.font = `${size}px 'Inter', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace`;
   ctx.textAlign = align;
   ctx.fillText(text, x, y);
 }
@@ -444,8 +447,8 @@ function draw(){
   drawNet();
   drawTrail();
 
-  const playerColor = cssVar('--player-color') || '#0ff';
-  const aiColor = cssVar('--ai-color') || '#f60';
+  const playerColor = cssVar('--player-color') || '#3b82f6';
+  const aiColor = cssVar('--ai-color') || '#ef4444';
   const ballColor = cssVar('--ball-color') || '#fff';
 
   drawRect(PADDLE_MARGIN, playerY, PADDLE_WIDTH, PLAYER_PADDLE_HEIGHT, playerColor);
@@ -788,7 +791,7 @@ function resizeHeatmapCanvas(cvs){
   ctx2.setTransform(d, 0, 0, d, 0, 0);
 }
 
-function drawHeatmap(cvs, bins, colorA='#00ffff', colorB='#ff6000'){
+function drawHeatmap(cvs, bins, colorA='#3b82f6', colorB='#3dd9ff'){
   if (!cvs) return;
   const c = cvs.getContext('2d');
   const w = Math.floor(cvs.width / (window.devicePixelRatio || 1));
@@ -816,15 +819,15 @@ function drawHeatmap(cvs, bins, colorA='#00ffff', colorB='#ff6000'){
     c.fillRect(Math.floor(x)+0.5, y, Math.max(2, barW-2), bh);
   }
 
-  c.fillStyle = cssVar('--muted') || '#9fb0c3';
-  c.font = '10px system-ui, -apple-system, Segoe UI, Roboto';
+  c.fillStyle = cssVar('--muted') || '#94a3b8';
+  c.font = '10px Inter, system-ui, -apple-system, Segoe UI, Roboto';
   c.fillText('Top', 4, 12);
   c.fillText('Bottom', 4, h-4);
 }
 
 function drawHeatmaps(){
-  drawHeatmap(heatCanvasP, HISTORY.heatPlayer, cssVar('--player-color')||'#00ffff', '#3dd9ff');
-  drawHeatmap(heatCanvasA, HISTORY.heatAI, cssVar('--ai-color')||'#ff6000', '#ff9a66');
+  drawHeatmap(heatCanvasP, HISTORY.heatPlayer, cssVar('--player-color')||'#3b82f6', '#60a5fa');
+  drawHeatmap(heatCanvasA, HISTORY.heatAI, cssVar('--ai-color')||'#ef4444', '#f87171');
 }
 
 function showResultOverlay(){ overlay.classList.remove('hidden'); }
@@ -847,7 +850,7 @@ function loadSettings(){
     return {
       gameplay: { ...DEFAULT_SETTINGS.gameplay, ...(parsed.gameplay||{}) },
       audio: { ...DEFAULT_SETTINGS.audio, ...(parsed.audio||{}) },
-      display: { ...DEFAULT_SETTINGS.display, ...(parsed.display||{}) }, // merges new 'trail'
+      display: { ...DEFAULT_SETTINGS.display, ...(parsed.display||{}) },
       controls: { ...DEFAULT_SETTINGS.controls, ...(parsed.controls||{}) },
     };
   }catch(e){
@@ -902,8 +905,24 @@ function openSettings(initialTab='gameplay'){
   optHiDPI.checked = !!SETTINGS.display.hiDPI;
   optTrail.value = SETTINGS.display.trail || 'medium';
 
+  document.getElementById('optBallAccelValue').textContent = parseFloat(optBallAccel.value).toFixed(2);
+  document.getElementById('optSpinPowerValue').textContent = parseFloat(optSpinPower.value).toFixed(2);
+  document.getElementById('optVolumeValue').textContent = Math.round(parseFloat(optVolume.value) * 100) + '%';
+
   gameplayLockHint.style.display = gameRunning && !gameOver ? 'block' : 'none';
   settingsModal.classList.remove('hidden');
+  
+  optBallAccel.addEventListener('input', () => {
+    document.getElementById('optBallAccelValue').textContent = parseFloat(optBallAccel.value).toFixed(2);
+  });
+  
+  optSpinPower.addEventListener('input', () => {
+    document.getElementById('optSpinPowerValue').textContent = parseFloat(optSpinPower.value).toFixed(2);
+  });
+  
+  optVolume.addEventListener('input', () => {
+    document.getElementById('optVolumeValue').textContent = Math.round(parseFloat(optVolume.value) * 100) + '%';
+  });
 }
 function closeSettings(){ settingsModal.classList.add('hidden'); }
 
@@ -1042,7 +1061,9 @@ function showToast(msg){
   toastEl.textContent = msg;
   toastEl.classList.add('show');
   if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toastEl.classList.remove('show'); }, 2400);
+  
+  const duration = preferTouchDevice() ? 2000 : 2400;
+  toastTimer = setTimeout(() => { toastEl.classList.remove('show'); }, duration);
 }
 
 (function boot(){
