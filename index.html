@@ -20,36 +20,30 @@
           <span id="ftLabel" class="ft-label">FT5</span>
         </div>
 
-        <button id="themeToggle" class="btn icon" aria-label="Switch to light mode">
+       <button id="themeToggle" class="btn icon" aria-label="switch to light mode">
           <svg class="icon-moon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path
                 d="M12,22 C17.5228475,22 22,17.5228475 22,12 C22,6.4771525 17.5228475,2 12,2 C6.4771525,2 2,6.4771525 2,12 C2,17.5228475 6.4771525,22 12,22 Z M12,20 L12,4 C16.418278,4 20,7.581722 20,12 C20,16.418278 16.418278,20 12,20 Z">
               </path>
             </svg>
         </button>
+
+        <button id="settingsBtn" class="btn icon" aria-label="Open Settings">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33
+                     1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06
+                     a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09
+                     a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06
+                     a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51
+                     1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9
+                     c0 .66.39 1.26 1 1.51H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+          </svg>
+        </button>
       </div>
 
       <div class="controls">
-        <div class="control-group">
-          <label class="select-wrap" title="Select the difficulty level before starting the game">
-            <span>Difficulty</span>
-            <select id="difficulty" aria-label="Select the difficulty level">
-              <option value="easy">Easy</option>
-              <option value="medium" selected>Medium</option>
-              <option value="hard">Hard</option>
-            </select>
-          </label>
-
-          <label class="select-wrap" title="Select the score target to win">
-            <span>Score to Win</span>
-            <select id="scoreToWin" aria-label="Select the score target">
-              <option value="5" selected>5</option>
-              <option value="10">10</option>
-              <option value="15">15</option>
-            </select>
-          </label>
-        </div>
-
         <div class="button-group">
           <button id="startBtn" class="btn primary">Start Game</button>
           <button id="pauseBtn" class="btn">Pause</button>
@@ -76,9 +70,106 @@
           <line x1="12" y1="16" x2="12" y2="12"></line>
           <line x1="12" y1="8" x2="12.01" y2="8"></line>
         </svg>
-        Press <b>Start Game</b> to begin.
+        Press <b>Start Game</b> to begins.
       </div>
     </main>
+  </div>
+
+  <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div id="settingsBackdrop" class="backdrop"></div>
+    <div class="modal-card">
+      <header class="modal-header">
+        <h2 id="settingsTitle">Settings</h2>
+        <button id="settingsClose" class="btn icon" aria-label="Close Settings">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </header>
+
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="gameplay" role="tab" aria-selected="true">Gameplay</button>
+        <button class="tab" data-tab="controls" role="tab">Controls</button>
+        <button class="tab" data-tab="audio" role="tab">Audio</button>
+        <button class="tab" data-tab="display" role="tab">Display</button>
+      </nav>
+
+      <section id="panel-gameplay" class="panel active">
+        <div class="form-row">
+          <label for="optDifficulty">Difficulty</label>
+          <select id="optDifficulty">
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="optScore">Score to Win</label>
+          <select id="optScore">
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="15">15</option>
+          </select>
+        </div>
+
+        <p class="hint small" id="gameplayLockHint">Changing gameplay settings will restart the match.</p>
+      </section>
+
+      <section id="panel-controls" class="panel">
+        <div class="form-row">
+          <label>Control Scheme</label>
+          <div class="radio-col">
+            <label><input type="radio" name="ctrlScheme" value="auto" checked disabled> Auto (coming soon)</label>
+            <label><input type="radio" name="ctrlScheme" value="mouse" disabled> Mouse</label>
+            <label><input type="radio" name="ctrlScheme" value="keyboard" disabled> Keyboard</label>
+            <label><input type="radio" name="ctrlScheme" value="touch" disabled> Touch</label>
+          </div>
+        </div>
+        <p class="hint small">Controls Setting Coming Soon.</p>
+      </section>
+
+      <section id="panel-audio" class="panel">
+        <div class="form-row">
+          <label class="switch">
+            <input type="checkbox" id="optSfx" checked>
+            <span>Sound Effects</span>
+          </label>
+        </div>
+        <div class="form-row">
+          <label for="optVolume">Volume</label>
+          <input type="range" id="optVolume" min="0" max="1" step="0.01" value="0.7" />
+        </div>
+        <p class="hint small">Audio Settings Coming Soon.</p>
+      </section>
+
+      <section id="panel-display" class="panel">
+        <div class="form-row">
+          <label>Theme</label>
+          <div class="radio-row">
+            <label><input type="radio" name="themeMode" value="system"> System</label>
+            <label><input type="radio" name="themeMode" value="light"> Light</label>
+            <label><input type="radio" name="themeMode" value="dark"> Dark</label>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="switch">
+            <input type="checkbox" id="optHiDPI" checked />
+            <span>High-DPI rendering</span>
+          </label>
+        </div>
+      </section>
+
+      <footer class="modal-footer">
+        <button id="settingsDefaults" class="btn ghost">Defaults</button>
+        <div class="spacer"></div>
+        <button id="settingsCancel" class="btn">Cancel</button>
+        <button id="settingsApply" class="btn primary">Apply</button>
+      </footer>
+    </div>
   </div>
 
   <script src="game.js" defer></script>

@@ -4,12 +4,11 @@ const ctx = canvas.getContext('2d');
 const startBtn = document.getElementById('startBtn');
 const pauseBtn = document.getElementById('pauseBtn');
 const resetBtn = document.getElementById('resetBtn');
-const difficultySelect = document.getElementById('difficulty');
-const scoreToWinSelect = document.getElementById('scoreToWin');
 const ftLabel = document.getElementById('ftLabel');
 const hint = document.getElementById('hint');
 
 const themeToggle = document.getElementById('themeToggle');
+const settingsBtn = document.getElementById('settingsBtn');
 const htmlRoot = document.documentElement;
 
 const overlay = document.getElementById('resultOverlay');
@@ -17,7 +16,38 @@ const playerResultEl = document.getElementById('playerResult');
 const aiResultEl = document.getElementById('aiResult');
 const playAgainBtn = document.getElementById('playAgainBtn');
 
+const settingsModal = document.getElementById('settingsModal');
+const settingsBackdrop = document.getElementById('settingsBackdrop');
+const settingsClose = document.getElementById('settingsClose');
+const settingsCancel = document.getElementById('settingsCancel');
+const settingsApply = document.getElementById('settingsApply');
+const settingsDefaults = document.getElementById('settingsDefaults');
+const tabs = Array.from(document.querySelectorAll('.tab'));
+const panels = {
+  gameplay: document.getElementById('panel-gameplay'),
+  controls: document.getElementById('panel-controls'),
+  audio: document.getElementById('panel-audio'),
+  display: document.getElementById('panel-display'),
+};
+const gameplayLockHint = document.getElementById('gameplayLockHint');
+
+const optDifficulty = document.getElementById('optDifficulty');
+const optScore = document.getElementById('optScore');
+const optSfx = document.getElementById('optSfx');
+const optVolume = document.getElementById('optVolume');
+const themeModeRadios = Array.from(document.querySelectorAll('input[name="themeMode"]'));
+const optHiDPI = document.getElementById('optHiDPI');
+
+const DEFAULT_SETTINGS = {
+  gameplay: { difficulty: 'medium', scoreToWin: 5 },
+  audio: { sfx: true, volume: 0.7 },
+  display: { themeMode: 'system', hiDPI: true },
+  controls: { scheme: 'auto' },
+};
+let SETTINGS = loadSettings();
+
 const ASPECT = 2;
+let hiDPIEnabled = true;
 let dpr = window.devicePixelRatio || 1;
 let cssW = 0, cssH = 0;
 
@@ -38,10 +68,9 @@ function resizeCanvas() {
   cssH = newCssH;
 
   canvas.style.height = `${cssH}px`;
-  dpr = window.devicePixelRatio || 1;
+  dpr = (hiDPIEnabled ? (window.devicePixelRatio || 1) : 1);
   canvas.width = Math.round(cssW * dpr);
   canvas.height = Math.round(cssH * dpr);
-
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 window.addEventListener('resize', resizeCanvas);
@@ -58,9 +87,9 @@ const DIFFICULTIES = {
   medium: { speed: 360, error: 12 },
   hard: { speed: 520, error: 6 },
 };
-let aiCfg = DIFFICULTIES[difficultySelect.value];
+let aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
 
-let scoreToWin = parseInt(scoreToWinSelect.value, 10);
+let scoreToWin = SETTINGS.gameplay.scoreToWin;
 
 let playerY = 0;
 let aiY = 0;
@@ -73,7 +102,6 @@ let aiScore = 0;
 let paused = false;
 let gameRunning = false;
 let gameOver = false;
-
 let resumeCountdown = 0;
 
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -113,8 +141,6 @@ function fullReset() {
   hideResultOverlay();
   centerEntities();
   resetBall(true);
-  difficultySelect.disabled = false;
-  scoreToWinSelect.disabled = false;
   updateFTLabel();
   updateControls();
   hint.style.opacity = 1;
@@ -136,9 +162,6 @@ function endGame(winner) {
   aiResultEl.classList.toggle('lose', playerWin);
 
   showResultOverlay();
-
-  difficultySelect.disabled = false;
-  scoreToWinSelect.disabled = false;
   updateControls();
 }
 
@@ -277,8 +300,6 @@ startBtn.addEventListener('click', () => {
     if (ballSpeedX === 0 && ballSpeedY === 0) serveBall();
     gameRunning = true;
     startResumeCountdown(3);
-    difficultySelect.disabled = true;
-    scoreToWinSelect.disabled = true;
     hint.style.opacity = 0;
   } else if (paused) {
     startResumeCountdown(3);
@@ -289,21 +310,11 @@ startBtn.addEventListener('click', () => {
 
 pauseBtn.addEventListener('click', () => {
   if (!gameRunning || gameOver) return;
-  if (!paused) {
-    paused = true;
-  } else {
-    startResumeCountdown(3);
-  }
+  if (!paused) paused = true; else startResumeCountdown(3);
   updateControls();
 });
 
 resetBtn.addEventListener('click', fullReset);
-
-difficultySelect.addEventListener('change', () => { aiCfg = DIFFICULTIES[difficultySelect.value]; });
-scoreToWinSelect.addEventListener('change', () => {
-  scoreToWin = parseInt(scoreToWinSelect.value, 10) || 5;
-  updateFTLabel();
-});
 
 function updateControls() {
   startBtn.disabled = (gameRunning && !paused && resumeCountdown === 0) || gameOver;
@@ -316,9 +327,7 @@ function syncScoreDOM() {
   const a = document.getElementById('aiScore');
   if (p && a) { p.textContent = playerScore; a.textContent = aiScore; }
 }
-function updateFTLabel() {
-  if (ftLabel) ftLabel.textContent = `FT${scoreToWin}`;
-}
+function updateFTLabel() { if (ftLabel) ftLabel.textContent = `FT${scoreToWin}`; }
 
 function showResultOverlay() { overlay.classList.remove('hidden'); }
 function hideResultOverlay() { overlay.classList.add('hidden'); }
@@ -332,31 +341,167 @@ function autoPauseIfRunning() {
 window.addEventListener('blur', autoPauseIfRunning);
 document.addEventListener('visibilitychange', () => { if (document.hidden) autoPauseIfRunning(); });
 
-(function initTheme() {
-  const saved = localStorage.getItem('theme');
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const initial = saved || (prefersDark ? 'dark' : 'light');
-  htmlRoot.setAttribute('data-theme', initial);
-  updateThemeButton(initial);
-})();
+function effectiveThemeFrom(mode) {
+  if (mode === 'system') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return prefersDark ? 'dark' : 'light';
+  }
+  return mode;
+}
+function applyThemeMode(mode) {
+  const eff = effectiveThemeFrom(mode);
+  htmlRoot.setAttribute('data-theme', eff);
+  updateThemeButton(eff);
 
-themeToggle.addEventListener('click', () => {
-  const current = htmlRoot.getAttribute('data-theme');
-  const next = current === 'dark' ? 'light' : 'dark';
-  htmlRoot.setAttribute('data-theme', next);
-  localStorage.setItem('theme', next);
-  updateThemeButton(next);
-});
-function updateThemeButton(theme) {
-  themeToggle.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b0f14' : '#f4f6fa');
+  if (meta) meta.setAttribute('content', eff === 'dark' ? '#0b0f14' : '#f4f6fa');
+}
+function updateThemeButton(effTheme) {
+  themeToggle.setAttribute('aria-label', effTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
 }
 
-resizeCanvas();
-centerEntities();
-resetBall(true);
-updateFTLabel();
-updateControls();
-syncScoreDOM();
-requestAnimationFrame(gameLoop);
+themeToggle.addEventListener('click', () => {
+  const currEff = htmlRoot.getAttribute('data-theme');
+  const next = (currEff === 'dark') ? 'light' : 'dark';
+  SETTINGS.display.themeMode = next;
+  saveSettings();
+  applyThemeMode(SETTINGS.display.themeMode);
+});
+
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem('pong.settings.v1');
+    if (!raw) return structuredClone(DEFAULT_SETTINGS);
+    const parsed = JSON.parse(raw);
+    return {
+      gameplay: { ...DEFAULT_SETTINGS.gameplay, ...(parsed.gameplay || {}) },
+      audio: { ...DEFAULT_SETTINGS.audio, ...(parsed.audio || {}) },
+      display: { ...DEFAULT_SETTINGS.display, ...(parsed.display || {}) },
+      controls: { ...DEFAULT_SETTINGS.controls, ...(parsed.controls || {}) },
+    };
+  } catch (e) {
+    return structuredClone(DEFAULT_SETTINGS);
+  }
+}
+function saveSettings() {
+  localStorage.setItem('pong.settings.v1', JSON.stringify(SETTINGS));
+}
+
+function openSettings(initialTab = 'gameplay') {
+
+  if (gameRunning && !paused && resumeCountdown === 0) { paused = true; updateControls(); }
+
+  tabs.forEach(t => {
+    const isActive = t.dataset.tab === initialTab;
+    t.classList.toggle('active', isActive);
+  });
+  Object.entries(panels).forEach(([k, el]) => el.classList.toggle('active', k === initialTab));
+
+  optDifficulty.value = SETTINGS.gameplay.difficulty;
+  optScore.value = String(SETTINGS.gameplay.scoreToWin);
+  optSfx.checked = !!SETTINGS.audio.sfx;
+  optVolume.value = String(SETTINGS.audio.volume);
+  themeModeRadios.forEach(r => r.checked = (r.value === SETTINGS.display.themeMode));
+  optHiDPI.checked = !!SETTINGS.display.hiDPI;
+
+  gameplayLockHint.style.display = gameRunning && !gameOver ? 'block' : 'none';
+
+  settingsModal.classList.remove('hidden');
+}
+function closeSettings() { settingsModal.classList.add('hidden'); }
+
+function gatherSettingsFromUI() {
+  const next = structuredClone(SETTINGS);
+
+  next.gameplay.difficulty = optDifficulty.value;
+  next.gameplay.scoreToWin = parseInt(optScore.value, 10) || 5;
+
+  next.audio.sfx = !!optSfx.checked;
+  next.audio.volume = parseFloat(optVolume.value);
+
+  const selTheme = themeModeRadios.find(r => r.checked)?.value || 'system';
+  next.display.themeMode = selTheme;
+  next.display.hiDPI = !!optHiDPI.checked;
+  return next;
+}
+
+function applySettings(next, { confirmRestartIfNeeded = true } = {}) {
+  const gameplayChanged =
+    next.gameplay.difficulty !== SETTINGS.gameplay.difficulty ||
+    next.gameplay.scoreToWin !== SETTINGS.gameplay.scoreToWin;
+
+  SETTINGS = next;
+  saveSettings();
+
+  applyThemeMode(SETTINGS.display.themeMode);
+  const hiChanged = (hiDPIEnabled !== !!SETTINGS.display.hiDPI);
+  hiDPIEnabled = !!SETTINGS.display.hiDPI;
+  if (hiChanged) resizeCanvas();
+
+  if (gameplayChanged) {
+    if (gameRunning && !gameOver && confirmRestartIfNeeded) {
+      const ok = window.confirm('Changing gameplay settings will restart the match. Continue?');
+      if (ok) {
+        aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
+        scoreToWin = SETTINGS.gameplay.scoreToWin;
+        updateFTLabel();
+        fullReset();
+      } else {
+        openSettings('gameplay');
+        return;
+      }
+    } else {
+      aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
+      scoreToWin = SETTINGS.gameplay.scoreToWin;
+      updateFTLabel();
+    }
+  }
+}
+
+settingsBtn.addEventListener('click', () => openSettings('gameplay'));
+settingsClose.addEventListener('click', closeSettings);
+settingsCancel.addEventListener('click', closeSettings);
+settingsBackdrop.addEventListener('click', closeSettings);
+
+settingsApply.addEventListener('click', () => {
+  const next = gatherSettingsFromUI();
+  applySettings(next, { confirmRestartIfNeeded: true });
+  closeSettings();
+});
+settingsDefaults.addEventListener('click', () => {
+  applySettings(structuredClone(DEFAULT_SETTINGS), { confirmRestartIfNeeded: true });
+  closeSettings();
+});
+
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    tabs.forEach(t => t.classList.toggle('active', t === tab));
+    Object.entries(panels).forEach(([key, el]) => el.classList.toggle('active', tab.dataset.tab === key));
+  });
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !settingsModal.classList.contains('hidden')) closeSettings();
+});
+
+function initThemeFromSettings() {
+  applyThemeMode(SETTINGS.display.themeMode);
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (SETTINGS.display.themeMode === 'system') applyThemeMode('system');
+  });
+}
+
+(function boot() {
+  hiDPIEnabled = !!SETTINGS.display.hiDPI;
+  initThemeFromSettings();
+  resizeCanvas();
+  centerEntities();
+  resetBall(true);
+  aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
+  scoreToWin = SETTINGS.gameplay.scoreToWin;
+  updateFTLabel();
+  updateControls();
+  syncScoreDOM();
+  requestAnimationFrame(gameLoop);
+})();
