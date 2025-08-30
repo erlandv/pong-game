@@ -71,6 +71,78 @@
         </svg>
         Press <b>Start Game</b> to begin.
       </div>
+
+      <div id="statsBar" class="stats">
+        <div class="stat">
+          <span>Rally</span>
+          <b><span id="statRally">0</span>/<span id="statMaxRally">0</span></b>
+        </div>
+        <div class="stat">
+          <span>Ball Speed</span>
+          <b><span id="statSpeed">0</span> px/s</b>
+        </div>
+        <div class="stat">
+          <span>Hits P/AI</span>
+          <b><span id="statHitsP">0</span>/<span id="statHitsAI">0</span></b>
+        </div>
+        <div class="stat">
+          <span>Walls</span>
+          <b id="statWalls">0</b>
+        </div>
+        <div class="stat">
+          <span>Time</span>
+          <b id="statTime">00:00</b>
+        </div>
+        <button id="clearStats" class="btn tiny ghost" aria-label="Clear stats">Clear</button>
+      </div>
+
+      <section class="adv-stats">
+        <header class="adv-head">
+          <h3>Advanced Stats</h3>
+          <div class="adv-actions">
+            <button id="resetHistory" class="btn tiny ghost">Reset History</button>
+          </div>
+        </header>
+
+        <div class="adv-grid">
+          <div class="adv-kpi">
+            <span>Games</span>
+            <b id="kpiGames">0</b>
+          </div>
+          <div class="adv-kpi">
+            <span>Wins</span>
+            <b id="kpiWins">0</b>
+          </div>
+          <div class="adv-kpi">
+            <span>Losses</span>
+            <b id="kpiLosses">0</b>
+          </div>
+          <div class="adv-kpi">
+            <span>Win Rate</span>
+            <b id="kpiWinRate">0%</b>
+          </div>
+          <div class="adv-kpi">
+            <span>Average Rally</span>
+            <b id="kpiAvgRally">0.0</b>
+          </div>
+        </div>
+
+        <div class="heatmaps">
+          <div class="heatcard">
+            <div class="heat-head">
+              <span>Contact Heatmap — Player</span>
+            </div>
+            <canvas id="heatPlayer" class="heat" width="600" height="90" aria-label="Ball contact heatmap on player paddle"></canvas>
+          </div>
+          <div class="heatcard">
+            <div class="heat-head">
+              <span>Contact Heatmap — AI</span>
+            </div>
+            <canvas id="heatAI" class="heat" width="600" height="90" aria-label="Ball contact heatmap on AI paddle"></canvas>
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
 
@@ -197,6 +269,7 @@
           <label for="optVolume">Volume</label>
           <input type="range" id="optVolume" min="0" max="1" step="0.01" value="0.7" />
         </div>
+        <p class="hint small">SFX includes hit, wall, score, win/lose, and countdown 3-2-1.</p>
       </section>
 
       <section id="panel-display" class="panel">
@@ -214,6 +287,16 @@
             <input type="checkbox" id="optHiDPI" checked />
             <span>High-DPI rendering</span>
           </label>
+        </div>
+
+        <div class="form-row">
+          <label for="optTrail">Trail Intensity</label>
+          <select id="optTrail">
+            <option value="off">Off</option>
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
         </div>
       </section>
 

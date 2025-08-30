@@ -79,7 +79,7 @@ body {
   flex-direction: column;
   gap: 16px;
   margin-bottom: 20px;
-  transition: var(--transition);
+  transition: var(--transition)
 }
 
 .brandbar {
@@ -206,6 +206,20 @@ body {
   box-shadow: none
 }
 
+.btn.small {
+  min-width: auto;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-radius: 8px
+}
+
+.btn.tiny {
+  min-width: auto;
+  padding: 6px 8px;
+  font-size: 12px;
+  border-radius: 8px
+}
+
 .btn.icon {
   min-width: 40px;
   width: 40px;
@@ -316,6 +330,146 @@ body {
 
 .icon-info {
   opacity: .9
+}
+
+.stats {
+  margin-top: 12px;
+  border-top: 1px dashed var(--border);
+  padding-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  align-items: center;
+}
+
+.stats .stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px
+}
+
+.stats .stat span {
+  color: var(--muted);
+  font-size: 12px
+}
+
+.stats .stat b {
+  font-size: 14px;
+  letter-spacing: .3px
+}
+
+.stats .btn.tiny {
+  justify-self: end
+}
+
+.adv-stats {
+  margin-top: 14px;
+  border-top: 1px dashed var(--border);
+  padding-top: 14px;
+}
+
+.adv-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px
+}
+
+.adv-head h3 {
+  font-size: 16px;
+  margin: 0
+}
+
+.adv-head .adv-actions {
+  margin-left: auto
+}
+
+.adv-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px
+}
+
+.adv-kpi {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px
+}
+
+.adv-kpi span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 4px
+}
+
+.adv-kpi b {
+  font-size: 18px
+}
+
+.heatmaps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px
+}
+
+.heatcard {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px
+}
+
+.heat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px
+}
+
+.heat {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .02), transparent);
+  outline: 1px dashed var(--border)
+}
+
+@media (max-width:780px) {
+  .stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr))
+  }
+
+  .stats .btn.tiny {
+    grid-column: 3/4
+  }
+
+  .adv-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr))
+  }
+
+  .heatmaps {
+    grid-template-columns: 1fr
+  }
+}
+
+@media (max-width:480px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+  }
+
+  .stats .btn.tiny {
+    grid-column: 2/3
+  }
+
+  .adv-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+  }
 }
 
 .modal.hidden {
