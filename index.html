@@ -13,14 +13,14 @@
       <div class="brandbar">
         <h1 class="brand">PONG Game</h1>
 
-        <div class="score-display" aria-live="polite" aria-atomic="true" title="Skor">
+        <div class="score-display" aria-live="polite" aria-atomic="true" title="Score">
           <span id="playerScore">0</span>
           <span class="score-separator">:</span>
           <span id="aiScore">0</span>
           <span id="ftLabel" class="ft-label">FT5</span>
         </div>
 
-       <button id="themeToggle" class="btn icon" aria-label="switch to light mode">
+        <button id="themeToggle" class="btn icon" aria-label="switch to light mode">
           <svg class="icon-moon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path
                 d="M12,22 C17.5228475,22 22,17.5228475 22,12 C22,6.4771525 17.5228475,2 12,2 C6.4771525,2 2,6.4771525 2,12 C2,17.5228475 6.4771525,22 12,22 Z M12,20 L12,4 C16.418278,4 20,7.581722 20,12 C20,16.418278 16.418278,20 12,20 Z">
@@ -29,8 +29,7 @@
         </button>
 
         <button id="settingsBtn" class="btn icon" aria-label="Open Settings">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3"></circle>
             <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33
                      1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06
@@ -38,7 +37,7 @@
                      a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06
                      a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51
                      1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9
-                     c0 .66.39 1.26 1 1.51H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+                     c0 .66.39 1.26 1 1.51H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"></path>
           </svg>
         </button>
       </div>
@@ -70,7 +69,7 @@
           <line x1="12" y1="16" x2="12" y2="12"></line>
           <line x1="12" y1="8" x2="12.01" y2="8"></line>
         </svg>
-        Press <b>Start Game</b> to begins.
+        Press <b>Start Game</b> to begin.
       </div>
     </main>
   </div>
@@ -122,13 +121,26 @@
         <div class="form-row">
           <label>Control Scheme</label>
           <div class="radio-col">
-            <label><input type="radio" name="ctrlScheme" value="auto" checked disabled> Auto (coming soon)</label>
-            <label><input type="radio" name="ctrlScheme" value="mouse" disabled> Mouse</label>
-            <label><input type="radio" name="ctrlScheme" value="keyboard" disabled> Keyboard</label>
-            <label><input type="radio" name="ctrlScheme" value="touch" disabled> Touch</label>
+            <label><input type="radio" name="ctrlScheme" value="auto" checked> Auto (Desktop: Keyboard+Mouse, Mobile: Touch)</label>
+            <label><input type="radio" name="ctrlScheme" value="mouse"> Mouse</label>
+            <label><input type="radio" name="ctrlScheme" value="keyboard"> Keyboard</label>
+            <label><input type="radio" name="ctrlScheme" value="touch"> Touch</label>
           </div>
         </div>
-        <p class="hint small">Controls Setting Coming Soon.</p>
+
+        <div class="form-row">
+          <label class="switch">
+            <input type="checkbox" id="optInvertY" />
+            <span>Invert Y (reverse up/down direction)</span>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <div class="hint small">
+            <div><b>Keyboard:</b> W/S or ↑/↓ to move, <kbd>Enter</kbd> Start, <kbd>P</kbd> Pause, <kbd>R</kbd> Reset.</div>
+            <div><b>Mouse/Touch:</b> move the pointer/drag on the canvas area.</div>
+          </div>
+        </div>
       </section>
 
       <section id="panel-audio" class="panel">
@@ -142,7 +154,6 @@
           <label for="optVolume">Volume</label>
           <input type="range" id="optVolume" min="0" max="1" step="0.01" value="0.7" />
         </div>
-        <p class="hint small">Audio Settings Coming Soon.</p>
       </section>
 
       <section id="panel-display" class="panel">
@@ -171,6 +182,8 @@
       </footer>
     </div>
   </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="game.js" defer></script>
 </body>

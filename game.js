@@ -14,7 +14,6 @@ const htmlRoot = document.documentElement;
 const overlay = document.getElementById('resultOverlay');
 const playerResultEl = document.getElementById('playerResult');
 const aiResultEl = document.getElementById('aiResult');
-const playAgainBtn = document.getElementById('playAgainBtn');
 
 const settingsModal = document.getElementById('settingsModal');
 const settingsBackdrop = document.getElementById('settingsBackdrop');
@@ -33,16 +32,20 @@ const gameplayLockHint = document.getElementById('gameplayLockHint');
 
 const optDifficulty = document.getElementById('optDifficulty');
 const optScore = document.getElementById('optScore');
+const ctrlSchemeRadios = Array.from(document.querySelectorAll('input[name="ctrlScheme"]'));
+const optInvertY = document.getElementById('optInvertY');
 const optSfx = document.getElementById('optSfx');
 const optVolume = document.getElementById('optVolume');
 const themeModeRadios = Array.from(document.querySelectorAll('input[name="themeMode"]'));
 const optHiDPI = document.getElementById('optHiDPI');
 
+const toastEl = document.getElementById('toast');
+
 const DEFAULT_SETTINGS = {
   gameplay: { difficulty: 'medium', scoreToWin: 5 },
   audio: { sfx: true, volume: 0.7 },
   display: { themeMode: 'system', hiDPI: true },
-  controls: { scheme: 'auto' },
+  controls: { scheme: 'auto', invertY: false },
 };
 let SETTINGS = loadSettings();
 
@@ -81,6 +84,7 @@ const PADDLE_HEIGHT = 80;
 const BALL_SIZE = 14;
 const PADDLE_MARGIN = 30;
 const BALL_SPEED_INIT = 360;
+const KEYBOARD_PADDLE_SPEED = 520;
 
 const DIFFICULTIES = {
   easy: { speed: 260, error: 18 },
@@ -104,8 +108,21 @@ let gameRunning = false;
 let gameOver = false;
 let resumeCountdown = 0;
 
+let allowMouse = false, allowKeyboard = false, allowTouch = false;
+let invertY = !!SETTINGS.controls.invertY;
+const pressed = { up: false, down: false };
+let touchActive = false;
+
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const isSettingsOpen = () => !settingsModal.classList.contains('hidden');
+function isTypingTarget(el) {
+  return el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+}
+
+function preferTouchDevice() {
+  return 'ontouchstart' in window || window.matchMedia('(pointer: coarse)').matches;
+}
 
 function centerEntities() {
   playerY = (cssH - PADDLE_HEIGHT) / 2;
@@ -228,6 +245,17 @@ function update(dt) {
 
   if (!gameRunning || paused || gameOver) return;
 
+  if (allowKeyboard) {
+    let dir = 0;
+    if (pressed.up) dir -= 1;
+    if (pressed.down) dir += 1;
+    if (invertY) dir *= -1;
+    if (dir !== 0) {
+      playerY += dir * KEYBOARD_PADDLE_SPEED * dt;
+      playerY = clamp(playerY, 0, cssH - PADDLE_HEIGHT);
+    }
+  }
+
   ballX += ballSpeedX * dt;
   ballY += ballSpeedY * dt;
 
@@ -289,9 +317,66 @@ function gameLoop(now) {
 }
 
 canvas.addEventListener('mousemove', (evt) => {
+  if (!allowMouse) return;
   const rect = canvas.getBoundingClientRect();
-  const mouseY = evt.clientY - rect.top;
-  playerY = clamp(mouseY - PADDLE_HEIGHT / 2, 0, cssH - PADDLE_HEIGHT);
+  let y = evt.clientY - rect.top;
+  if (invertY) y = cssH - y;
+  playerY = clamp(y - PADDLE_HEIGHT / 2, 0, cssH - PADDLE_HEIGHT);
+});
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (!allowTouch) return;
+  if (e.pointerType !== 'touch' && preferTouchDevice()) return;
+  touchActive = true;
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', (e) => {
+  if (!allowTouch || !touchActive) return;
+  const rect = canvas.getBoundingClientRect();
+  let y = e.clientY - rect.top;
+  if (invertY) y = cssH - y;
+  playerY = clamp(y - PADDLE_HEIGHT / 2, 0, cssH - PADDLE_HEIGHT);
+});
+canvas.addEventListener('pointerup', () => { if (!allowTouch) return; touchActive = false; });
+canvas.addEventListener('pointercancel', () => { if (!allowTouch) return; touchActive = false; });
+
+let keyboardToastShown = false;
+document.addEventListener('keydown', (e) => {
+  if (!allowKeyboard) return;
+
+  if (isSettingsOpen() || isTypingTarget(e.target)) return;
+
+  if (e.code === 'ArrowUp' || e.code === 'KeyW') { pressed.up = true; e.preventDefault(); if (!keyboardToastShown) { showToast('Keyboard aktif: W/S atau ↑/↓ · Enter=Start · P=Pause · R=Reset'); keyboardToastShown = true; } }
+  if (e.code === 'ArrowDown' || e.code === 'KeyS') { pressed.down = true; e.preventDefault(); if (!keyboardToastShown) { showToast('Keyboard aktif: W/S atau ↑/↓ · Enter=Start · P=Pause · R=Reset'); keyboardToastShown = true; } }
+
+  if (e.code === 'Enter') {
+    e.preventDefault();
+    if (gameOver) { fullReset(); }
+    if (!gameRunning) {
+      if (ballSpeedX === 0 && ballSpeedY === 0) serveBall();
+      gameRunning = true;
+      startResumeCountdown(3);
+      hint.style.opacity = 0;
+      hideResultOverlay();
+      updateControls();
+    } else if (paused) {
+      startResumeCountdown(3);
+      updateControls();
+    }
+  } else if (e.code === 'KeyP') {
+    e.preventDefault();
+    if (!gameRunning || gameOver) return;
+    if (!paused) paused = true; else startResumeCountdown(3);
+    updateControls();
+  } else if (e.code === 'KeyR') {
+    e.preventDefault();
+    fullReset();
+  }
+});
+document.addEventListener('keyup', (e) => {
+  if (!allowKeyboard) return;
+  if (e.code === 'ArrowUp' || e.code === 'KeyW') pressed.up = false;
+  if (e.code === 'ArrowDown' || e.code === 'KeyS') pressed.down = false;
 });
 
 startBtn.addEventListener('click', () => {
@@ -352,14 +437,12 @@ function applyThemeMode(mode) {
   const eff = effectiveThemeFrom(mode);
   htmlRoot.setAttribute('data-theme', eff);
   updateThemeButton(eff);
-
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', eff === 'dark' ? '#0b0f14' : '#f4f6fa');
 }
 function updateThemeButton(effTheme) {
   themeToggle.setAttribute('aria-label', effTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
 }
-
 themeToggle.addEventListener('click', () => {
   const currEff = htmlRoot.getAttribute('data-theme');
   const next = (currEff === 'dark') ? 'light' : 'dark';
@@ -388,17 +471,17 @@ function saveSettings() {
 }
 
 function openSettings(initialTab = 'gameplay') {
-
   if (gameRunning && !paused && resumeCountdown === 0) { paused = true; updateControls(); }
 
-  tabs.forEach(t => {
-    const isActive = t.dataset.tab === initialTab;
-    t.classList.toggle('active', isActive);
-  });
+  tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === initialTab));
   Object.entries(panels).forEach(([k, el]) => el.classList.toggle('active', k === initialTab));
 
   optDifficulty.value = SETTINGS.gameplay.difficulty;
   optScore.value = String(SETTINGS.gameplay.scoreToWin);
+
+  ctrlSchemeRadios.forEach(r => r.checked = (r.value === SETTINGS.controls.scheme));
+  optInvertY.checked = !!SETTINGS.controls.invertY;
+
   optSfx.checked = !!SETTINGS.audio.sfx;
   optVolume.value = String(SETTINGS.audio.volume);
   themeModeRadios.forEach(r => r.checked = (r.value === SETTINGS.display.themeMode));
@@ -412,13 +495,13 @@ function closeSettings() { settingsModal.classList.add('hidden'); }
 
 function gatherSettingsFromUI() {
   const next = structuredClone(SETTINGS);
-
   next.gameplay.difficulty = optDifficulty.value;
   next.gameplay.scoreToWin = parseInt(optScore.value, 10) || 5;
-
+  const cs = ctrlSchemeRadios.find(r => r.checked)?.value || 'auto';
+  next.controls.scheme = cs;
+  next.controls.invertY = !!optInvertY.checked;
   next.audio.sfx = !!optSfx.checked;
   next.audio.volume = parseFloat(optVolume.value);
-
   const selTheme = themeModeRadios.find(r => r.checked)?.value || 'system';
   next.display.themeMode = selTheme;
   next.display.hiDPI = !!optHiDPI.checked;
@@ -430,6 +513,10 @@ function applySettings(next, { confirmRestartIfNeeded = true } = {}) {
     next.gameplay.difficulty !== SETTINGS.gameplay.difficulty ||
     next.gameplay.scoreToWin !== SETTINGS.gameplay.scoreToWin;
 
+  const controlsChanged =
+    next.controls.scheme !== SETTINGS.controls.scheme ||
+    next.controls.invertY !== SETTINGS.controls.invertY;
+
   SETTINGS = next;
   saveSettings();
 
@@ -440,15 +527,14 @@ function applySettings(next, { confirmRestartIfNeeded = true } = {}) {
 
   if (gameplayChanged) {
     if (gameRunning && !gameOver && confirmRestartIfNeeded) {
-      const ok = window.confirm('Changing gameplay settings will restart the match. Continue?');
+      const ok = window.confirm('Changing gameplay settings now will restart the match. Continue?');
       if (ok) {
         aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
         scoreToWin = SETTINGS.gameplay.scoreToWin;
         updateFTLabel();
         fullReset();
       } else {
-        openSettings('gameplay');
-        return;
+        openSettings('gameplay'); return;
       }
     } else {
       aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
@@ -456,9 +542,14 @@ function applySettings(next, { confirmRestartIfNeeded = true } = {}) {
       updateFTLabel();
     }
   }
+
+  if (controlsChanged) {
+    invertY = !!SETTINGS.controls.invertY;
+    recomputeControlPermissions(true);
+  }
 }
 
-settingsBtn.addEventListener('click', () => openSettings('gameplay'));
+settingsBtn.addEventListener('click', () => openSettings('controls'));
 settingsClose.addEventListener('click', closeSettings);
 settingsCancel.addEventListener('click', closeSettings);
 settingsBackdrop.addEventListener('click', closeSettings);
@@ -486,21 +577,53 @@ document.addEventListener('keydown', (e) => {
 
 function initThemeFromSettings() {
   applyThemeMode(SETTINGS.display.themeMode);
-
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     if (SETTINGS.display.themeMode === 'system') applyThemeMode('system');
   });
 }
 
+function recomputeControlPermissions(showToastOnChange = false) {
+  const prev = { allowMouse, allowKeyboard, allowTouch };
+  const scheme = SETTINGS.controls.scheme;
+  allowMouse = allowKeyboard = allowTouch = false;
+
+  if (scheme === 'mouse') { allowMouse = true; }
+  else if (scheme === 'keyboard') { allowKeyboard = true; }
+  else if (scheme === 'touch') { allowTouch = true; }
+  else {
+    if (preferTouchDevice()) { allowTouch = true; }
+    else { allowMouse = true; allowKeyboard = true; }
+  }
+
+  invertY = !!SETTINGS.controls.invertY;
+
+  if (showToastOnChange) {
+    if (allowKeyboard && allowMouse) showToast('Control: Auto (Keyboard + Mouse)');
+    else if (allowTouch) showToast('Control: Touch (drag to move the paddle)');
+    else if (allowKeyboard) showToast('Control: Keyboard active (W/S or ↑/↓)');
+    else if (allowMouse) showToast('Control: Mouse active');
+  }
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  if (!toastEl) return;
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastEl.classList.remove('show'); }, 2400);
+}
+
 (function boot() {
-  hiDPIEnabled = !!SETTINGS.display.hiDPI;
   initThemeFromSettings();
+  hiDPIEnabled = !!SETTINGS.display.hiDPI;
   resizeCanvas();
   centerEntities();
   resetBall(true);
   aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
   scoreToWin = SETTINGS.gameplay.scoreToWin;
   updateFTLabel();
+  recomputeControlPermissions(true);
   updateControls();
   syncScoreDOM();
   requestAnimationFrame(gameLoop);
