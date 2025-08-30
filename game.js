@@ -32,17 +32,35 @@ const gameplayLockHint = document.getElementById('gameplayLockHint');
 
 const optDifficulty = document.getElementById('optDifficulty');
 const optScore = document.getElementById('optScore');
+const optPaddleSpeed = document.getElementById('optPaddleSpeed');
+const optBallCurve = document.getElementById('optBallCurve');
+const optBallAccel = document.getElementById('optBallAccel');
+const optSpinEnabled = document.getElementById('optSpinEnabled');
+const optSpinPower = document.getElementById('optSpinPower');
+const optAssist = document.getElementById('optAssist');
+
 const ctrlSchemeRadios = Array.from(document.querySelectorAll('input[name="ctrlScheme"]'));
 const optInvertY = document.getElementById('optInvertY');
+
 const optSfx = document.getElementById('optSfx');
 const optVolume = document.getElementById('optVolume');
+
 const themeModeRadios = Array.from(document.querySelectorAll('input[name="themeMode"]'));
 const optHiDPI = document.getElementById('optHiDPI');
 
 const toastEl = document.getElementById('toast');
 
 const DEFAULT_SETTINGS = {
-  gameplay: { difficulty: 'medium', scoreToWin: 5 },
+  gameplay: {
+    difficulty: 'medium',
+    scoreToWin: 5,
+    paddleSpeed: 'normal',
+    ballCurve: 'gradual',
+    ballAccel: 0.05,
+    spinEnabled: true,
+    spinPower: 0.6,
+    assist: 'off',
+  },
   audio: { sfx: true, volume: 0.7 },
   display: { themeMode: 'system', hiDPI: true },
   controls: { scheme: 'auto', invertY: false },
@@ -80,11 +98,17 @@ window.addEventListener('resize', resizeCanvas);
 window.addEventListener('orientationchange', resizeCanvas);
 
 const PADDLE_WIDTH = 12;
-const PADDLE_HEIGHT = 80;
+const BASE_PADDLE_HEIGHT = 80;
 const BALL_SIZE = 14;
 const PADDLE_MARGIN = 30;
 const BALL_SPEED_INIT = 360;
-const KEYBOARD_PADDLE_SPEED = 520;
+const MAX_BALL_SPEED = 920;
+
+let PLAYER_PADDLE_HEIGHT = BASE_PADDLE_HEIGHT;
+let AI_PADDLE_HEIGHT = BASE_PADDLE_HEIGHT;
+
+const PADDLE_SPEEDS = { slow: 380, normal: 520, fast: 680 };
+let KEYBOARD_PADDLE_SPEED = PADDLE_SPEEDS[SETTINGS.gameplay.paddleSpeed];
 
 const DIFFICULTIES = {
   easy: { speed: 260, error: 18 },
@@ -92,20 +116,16 @@ const DIFFICULTIES = {
   hard: { speed: 520, error: 6 },
 };
 let aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
+let aiSpeed = aiCfg.speed;
+let aiError = aiCfg.error;
 
 let scoreToWin = SETTINGS.gameplay.scoreToWin;
 
-let playerY = 0;
-let aiY = 0;
-let ballX = 0;
-let ballY = 0;
-let ballSpeedX = 0;
-let ballSpeedY = 0;
-let playerScore = 0;
-let aiScore = 0;
-let paused = false;
-let gameRunning = false;
-let gameOver = false;
+let playerY = 0, aiY = 0;
+let ballX = 0, ballY = 0;
+let ballSpeedX = 0, ballSpeedY = 0;
+let playerScore = 0, aiScore = 0;
+let paused = false, gameRunning = false, gameOver = false;
 let resumeCountdown = 0;
 
 let allowMouse = false, allowKeyboard = false, allowTouch = false;
@@ -113,22 +133,24 @@ let invertY = !!SETTINGS.controls.invertY;
 const pressed = { up: false, down: false };
 let touchActive = false;
 
+let prevPlayerY = 0;
+
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const isSettingsOpen = () => !settingsModal.classList.contains('hidden');
 function isTypingTarget(el) {
   return el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
 }
-
 function preferTouchDevice() {
   return 'ontouchstart' in window || window.matchMedia('(pointer: coarse)').matches;
 }
 
 function centerEntities() {
-  playerY = (cssH - PADDLE_HEIGHT) / 2;
-  aiY = (cssH - PADDLE_HEIGHT) / 2;
+  playerY = (cssH - PLAYER_PADDLE_HEIGHT) / 2;
+  aiY = (cssH - AI_PADDLE_HEIGHT) / 2;
   ballX = cssW / 2 - BALL_SIZE / 2;
   ballY = cssH / 2 - BALL_SIZE / 2;
+  prevPlayerY = playerY;
 }
 
 function serveBall() {
@@ -149,12 +171,8 @@ function resetBall(scoreReset = false) {
 }
 
 function fullReset() {
-  playerScore = 0;
-  aiScore = 0;
-  paused = false;
-  gameRunning = false;
-  gameOver = false;
-  resumeCountdown = 0;
+  playerScore = 0; aiScore = 0;
+  paused = false; gameRunning = false; gameOver = false; resumeCountdown = 0;
   hideResultOverlay();
   centerEntities();
   resetBall(true);
@@ -165,11 +183,7 @@ function fullReset() {
 }
 
 function endGame(winner) {
-  gameOver = true;
-  gameRunning = false;
-  paused = false;
-  resumeCountdown = 0;
-
+  gameOver = true; gameRunning = false; paused = false; resumeCountdown = 0;
   resetBall(true);
 
   const playerWin = winner === 'player';
@@ -187,6 +201,57 @@ function startResumeCountdown(seconds = 3) {
   paused = true;
   updateControls();
 }
+
+function applyAssistAndHeights() {
+  let playerScale = 1, aiSpeedScale = 1, aiErrorBonus = 0;
+  if (SETTINGS.gameplay.assist === 'light') { playerScale = 1.2; aiSpeedScale = 0.85; aiErrorBonus = 3; }
+  if (SETTINGS.gameplay.assist === 'strong') { playerScale = 1.4; aiSpeedScale = 0.7; aiErrorBonus = 6; }
+
+  const newPlayerH = Math.round(BASE_PADDLE_HEIGHT * playerScale);
+  const newAiH = BASE_PADDLE_HEIGHT;
+  const keepCenter = (y, oldH, newH) => clamp(y + (oldH / 2) - (newH / 2), 0, cssH - newH);
+
+  const oldPlayerH = PLAYER_PADDLE_HEIGHT;
+  const oldAiH = AI_PADDLE_HEIGHT;
+  PLAYER_PADDLE_HEIGHT = newPlayerH;
+  AI_PADDLE_HEIGHT = newAiH;
+
+  playerY = keepCenter(playerY, oldPlayerH, PLAYER_PADDLE_HEIGHT);
+  aiY = keepCenter(aiY, oldAiH, AI_PADDLE_HEIGHT);
+
+  aiSpeed = aiCfg.speed * aiSpeedScale;
+  aiError = aiCfg.error + aiErrorBonus;
+}
+
+function applyKeyboardSpeed() { KEYBOARD_PADDLE_SPEED = PADDLE_SPEEDS[SETTINGS.gameplay.paddleSpeed] || 520; }
+
+function applyDifficulty() {
+  aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
+  applyAssistAndHeights();
+}
+
+function applyThemeMode(mode) {
+  const eff = (mode === 'system')
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : mode;
+  htmlRoot.setAttribute('data-theme', eff);
+  themeToggle.setAttribute('aria-label', eff === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', eff === 'dark' ? '#0b0f14' : '#f4f6fa');
+}
+function initThemeFromSettings() {
+  applyThemeMode(SETTINGS.display.themeMode);
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (SETTINGS.display.themeMode === 'system') applyThemeMode('system');
+  });
+}
+themeToggle.addEventListener('click', () => {
+  const currEff = htmlRoot.getAttribute('data-theme');
+  const next = (currEff === 'dark') ? 'light' : 'dark';
+  SETTINGS.display.themeMode = next;
+  saveSettings();
+  applyThemeMode(SETTINGS.display.themeMode);
+});
 
 function drawRect(x, y, w, h, color) { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); }
 function drawNet() {
@@ -217,8 +282,8 @@ function draw() {
   const aiColor = cssVar('--ai-color') || '#f60';
   const ballColor = cssVar('--ball-color') || '#fff';
 
-  drawRect(PADDLE_MARGIN, playerY, PADDLE_WIDTH, PADDLE_HEIGHT, playerColor);
-  drawRect(cssW - PADDLE_MARGIN - PADDLE_WIDTH, aiY, PADDLE_WIDTH, PADDLE_HEIGHT, aiColor);
+  drawRect(PADDLE_MARGIN, playerY, PADDLE_WIDTH, PLAYER_PADDLE_HEIGHT, playerColor);
+  drawRect(cssW - PADDLE_MARGIN - PADDLE_WIDTH, aiY, PADDLE_WIDTH, AI_PADDLE_HEIGHT, aiColor);
   drawRect(ballX, ballY, BALL_SIZE, BALL_SIZE, ballColor);
 
   drawText(playerScore, cssW / 2 - 60, 50, 36, 'right');
@@ -252,7 +317,7 @@ function update(dt) {
     if (invertY) dir *= -1;
     if (dir !== 0) {
       playerY += dir * KEYBOARD_PADDLE_SPEED * dt;
-      playerY = clamp(playerY, 0, cssH - PADDLE_HEIGHT);
+      playerY = clamp(playerY, 0, cssH - PLAYER_PADDLE_HEIGHT);
     }
   }
 
@@ -267,23 +332,47 @@ function update(dt) {
   if (
     ballX <= PADDLE_MARGIN + PADDLE_WIDTH &&
     ballY + BALL_SIZE > playerY &&
-    ballY < playerY + PADDLE_HEIGHT
+    ballY < playerY + PLAYER_PADDLE_HEIGHT
   ) {
     ballX = PADDLE_MARGIN + PADDLE_WIDTH;
-    ballSpeedX *= -1.05;
-    const collidePoint = (ballY + BALL_SIZE / 2) - (playerY + PADDLE_HEIGHT / 2);
+
+    if (SETTINGS.gameplay.ballCurve === 'gradual') {
+      ballSpeedX = -ballSpeedX * (1 + SETTINGS.gameplay.ballAccel);
+    } else {
+      ballSpeedX = -ballSpeedX;
+    }
+
+    const collidePoint = (ballY + BALL_SIZE / 2) - (playerY + PLAYER_PADDLE_HEIGHT / 2);
     ballSpeedY = collidePoint * 9;
+
+    if (SETTINGS.gameplay.spinEnabled) {
+      const paddleVelY = (playerY - prevPlayerY) / dt;
+      const spinCoeff = 0.12 * SETTINGS.gameplay.spinPower;
+      ballSpeedY += paddleVelY * spinCoeff;
+    }
+
+    ballSpeedX = Math.sign(ballSpeedX) * Math.min(Math.abs(ballSpeedX), MAX_BALL_SPEED);
+    ballSpeedY = Math.sign(ballSpeedY) * Math.min(Math.abs(ballSpeedY), MAX_BALL_SPEED);
   }
 
   if (
     ballX + BALL_SIZE >= cssW - PADDLE_MARGIN - PADDLE_WIDTH &&
     ballY + BALL_SIZE > aiY &&
-    ballY < aiY + PADDLE_HEIGHT
+    ballY < aiY + AI_PADDLE_HEIGHT
   ) {
     ballX = cssW - PADDLE_MARGIN - PADDLE_WIDTH - BALL_SIZE;
-    ballSpeedX *= -1.05;
-    const collidePoint = (ballY + BALL_SIZE / 2) - (aiY + PADDLE_HEIGHT / 2);
+
+    if (SETTINGS.gameplay.ballCurve === 'gradual') {
+      ballSpeedX = -ballSpeedX * (1 + SETTINGS.gameplay.ballAccel);
+    } else {
+      ballSpeedX = -ballSpeedX;
+    }
+
+    const collidePoint = (ballY + BALL_SIZE / 2) - (aiY + AI_PADDLE_HEIGHT / 2);
     ballSpeedY = collidePoint * 9;
+
+    ballSpeedX = Math.sign(ballSpeedX) * Math.min(Math.abs(ballSpeedX), MAX_BALL_SPEED);
+    ballSpeedY = Math.sign(ballSpeedY) * Math.min(Math.abs(ballSpeedY), MAX_BALL_SPEED);
   }
 
   if (ballX < 0) {
@@ -296,15 +385,17 @@ function update(dt) {
     resetBall(false);
   }
 
-  const aiCenter = aiY + PADDLE_HEIGHT / 2;
+  const aiCenter = aiY + AI_PADDLE_HEIGHT / 2;
   const target = ballY + BALL_SIZE / 2;
   const delta = target - aiCenter;
 
-  if (Math.abs(delta) > aiCfg.error) {
-    const step = Math.sign(delta) * Math.min(Math.abs(delta), aiCfg.speed * dt);
+  if (Math.abs(delta) > aiError) {
+    const step = Math.sign(delta) * Math.min(Math.abs(delta), aiSpeed * dt);
     aiY += step;
   }
-  aiY = clamp(aiY, 0, cssH - PADDLE_HEIGHT);
+  aiY = clamp(aiY, 0, cssH - AI_PADDLE_HEIGHT);
+
+  prevPlayerY = playerY;
 }
 
 let lastTime = performance.now();
@@ -321,7 +412,7 @@ canvas.addEventListener('mousemove', (evt) => {
   const rect = canvas.getBoundingClientRect();
   let y = evt.clientY - rect.top;
   if (invertY) y = cssH - y;
-  playerY = clamp(y - PADDLE_HEIGHT / 2, 0, cssH - PADDLE_HEIGHT);
+  playerY = clamp(y - PLAYER_PADDLE_HEIGHT / 2, 0, cssH - PLAYER_PADDLE_HEIGHT);
 });
 
 canvas.addEventListener('pointerdown', (e) => {
@@ -335,7 +426,7 @@ canvas.addEventListener('pointermove', (e) => {
   const rect = canvas.getBoundingClientRect();
   let y = e.clientY - rect.top;
   if (invertY) y = cssH - y;
-  playerY = clamp(y - PADDLE_HEIGHT / 2, 0, cssH - PADDLE_HEIGHT);
+  playerY = clamp(y - PLAYER_PADDLE_HEIGHT / 2, 0, cssH - PLAYER_PADDLE_HEIGHT);
 });
 canvas.addEventListener('pointerup', () => { if (!allowTouch) return; touchActive = false; });
 canvas.addEventListener('pointercancel', () => { if (!allowTouch) return; touchActive = false; });
@@ -346,8 +437,8 @@ document.addEventListener('keydown', (e) => {
 
   if (isSettingsOpen() || isTypingTarget(e.target)) return;
 
-  if (e.code === 'ArrowUp' || e.code === 'KeyW') { pressed.up = true; e.preventDefault(); if (!keyboardToastShown) { showToast('Keyboard aktif: W/S atau ↑/↓ · Enter=Start · P=Pause · R=Reset'); keyboardToastShown = true; } }
-  if (e.code === 'ArrowDown' || e.code === 'KeyS') { pressed.down = true; e.preventDefault(); if (!keyboardToastShown) { showToast('Keyboard aktif: W/S atau ↑/↓ · Enter=Start · P=Pause · R=Reset'); keyboardToastShown = true; } }
+  if (e.code === 'ArrowUp' || e.code === 'KeyW') { pressed.up = true; e.preventDefault(); if (!keyboardToastShown) { showToast('Keyboard active: W/S or ↑/↓ · Enter=Start · P=Pause · R=Reset'); keyboardToastShown = true; } }
+  if (e.code === 'ArrowDown' || e.code === 'KeyS') { pressed.down = true; e.preventDefault(); if (!keyboardToastShown) { showToast('Keyboard active: W/S or ↑/↓ · Enter=Start · P=Pause · R=Reset'); keyboardToastShown = true; } }
 
   if (e.code === 'Enter') {
     e.preventDefault();
@@ -426,31 +517,6 @@ function autoPauseIfRunning() {
 window.addEventListener('blur', autoPauseIfRunning);
 document.addEventListener('visibilitychange', () => { if (document.hidden) autoPauseIfRunning(); });
 
-function effectiveThemeFrom(mode) {
-  if (mode === 'system') {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    return prefersDark ? 'dark' : 'light';
-  }
-  return mode;
-}
-function applyThemeMode(mode) {
-  const eff = effectiveThemeFrom(mode);
-  htmlRoot.setAttribute('data-theme', eff);
-  updateThemeButton(eff);
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', eff === 'dark' ? '#0b0f14' : '#f4f6fa');
-}
-function updateThemeButton(effTheme) {
-  themeToggle.setAttribute('aria-label', effTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
-}
-themeToggle.addEventListener('click', () => {
-  const currEff = htmlRoot.getAttribute('data-theme');
-  const next = (currEff === 'dark') ? 'light' : 'dark';
-  SETTINGS.display.themeMode = next;
-  saveSettings();
-  applyThemeMode(SETTINGS.display.themeMode);
-});
-
 function loadSettings() {
   try {
     const raw = localStorage.getItem('pong.settings.v1');
@@ -478,6 +544,12 @@ function openSettings(initialTab = 'gameplay') {
 
   optDifficulty.value = SETTINGS.gameplay.difficulty;
   optScore.value = String(SETTINGS.gameplay.scoreToWin);
+  optPaddleSpeed.value = SETTINGS.gameplay.paddleSpeed;
+  optBallCurve.value = SETTINGS.gameplay.ballCurve;
+  optBallAccel.value = String(SETTINGS.gameplay.ballAccel);
+  optSpinEnabled.checked = !!SETTINGS.gameplay.spinEnabled;
+  optSpinPower.value = String(SETTINGS.gameplay.spinPower);
+  optAssist.value = SETTINGS.gameplay.assist;
 
   ctrlSchemeRadios.forEach(r => r.checked = (r.value === SETTINGS.controls.scheme));
   optInvertY.checked = !!SETTINGS.controls.invertY;
@@ -488,7 +560,6 @@ function openSettings(initialTab = 'gameplay') {
   optHiDPI.checked = !!SETTINGS.display.hiDPI;
 
   gameplayLockHint.style.display = gameRunning && !gameOver ? 'block' : 'none';
-
   settingsModal.classList.remove('hidden');
 }
 function closeSettings() { settingsModal.classList.add('hidden'); }
@@ -497,25 +568,44 @@ function gatherSettingsFromUI() {
   const next = structuredClone(SETTINGS);
   next.gameplay.difficulty = optDifficulty.value;
   next.gameplay.scoreToWin = parseInt(optScore.value, 10) || 5;
+  next.gameplay.paddleSpeed = optPaddleSpeed.value;
+  next.gameplay.ballCurve = optBallCurve.value;
+  next.gameplay.ballAccel = Math.max(0, Math.min(0.15, parseFloat(optBallAccel.value) || 0));
+  next.gameplay.spinEnabled = !!optSpinEnabled.checked;
+  next.gameplay.spinPower = Math.max(0, Math.min(1, parseFloat(optSpinPower.value) || 0));
+  next.gameplay.assist = optAssist.value;
+
   const cs = ctrlSchemeRadios.find(r => r.checked)?.value || 'auto';
   next.controls.scheme = cs;
   next.controls.invertY = !!optInvertY.checked;
+
   next.audio.sfx = !!optSfx.checked;
   next.audio.volume = parseFloat(optVolume.value);
+
   const selTheme = themeModeRadios.find(r => r.checked)?.value || 'system';
   next.display.themeMode = selTheme;
   next.display.hiDPI = !!optHiDPI.checked;
   return next;
 }
 
-function applySettings(next, { confirmRestartIfNeeded = true } = {}) {
-  const gameplayChanged =
-    next.gameplay.difficulty !== SETTINGS.gameplay.difficulty ||
-    next.gameplay.scoreToWin !== SETTINGS.gameplay.scoreToWin;
+function gameplayChanged(next, curr) {
+  return next.gameplay.difficulty !== curr.gameplay.difficulty ||
+    next.gameplay.scoreToWin !== curr.gameplay.scoreToWin ||
+    next.gameplay.paddleSpeed !== curr.gameplay.paddleSpeed ||
+    next.gameplay.ballCurve !== curr.gameplay.ballCurve ||
+    Math.abs(next.gameplay.ballAccel - curr.gameplay.ballAccel) > 1e-6 ||
+    next.gameplay.spinEnabled !== curr.gameplay.spinEnabled ||
+    Math.abs(next.gameplay.spinPower - curr.gameplay.spinPower) > 1e-6 ||
+    next.gameplay.assist !== curr.gameplay.assist;
+}
+function controlsChanged(next, curr) {
+  return next.controls.scheme !== curr.controls.scheme ||
+    next.controls.invertY !== curr.controls.invertY;
+}
 
-  const controlsChanged =
-    next.controls.scheme !== SETTINGS.controls.scheme ||
-    next.controls.invertY !== SETTINGS.controls.invertY;
+function applySettings(next, { confirmRestartIfNeeded = true } = {}) {
+  const needRestart = gameplayChanged(next, SETTINGS);
+  const controlsDiff = controlsChanged(next, SETTINGS);
 
   SETTINGS = next;
   saveSettings();
@@ -525,35 +615,34 @@ function applySettings(next, { confirmRestartIfNeeded = true } = {}) {
   hiDPIEnabled = !!SETTINGS.display.hiDPI;
   if (hiChanged) resizeCanvas();
 
-  if (gameplayChanged) {
-    if (gameRunning && !gameOver && confirmRestartIfNeeded) {
-      const ok = window.confirm('Changing gameplay settings now will restart the match. Continue?');
-      if (ok) {
-        aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
-        scoreToWin = SETTINGS.gameplay.scoreToWin;
-        updateFTLabel();
-        fullReset();
-      } else {
-        openSettings('gameplay'); return;
-      }
-    } else {
-      aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
-      scoreToWin = SETTINGS.gameplay.scoreToWin;
-      updateFTLabel();
-    }
+  if (needRestart && gameRunning && !gameOver && confirmRestartIfNeeded) {
+    const ok = window.confirm('Changing gameplay settings will restart the match. Continue?');
+    if (!ok) { openSettings('gameplay'); return; }
+
+    aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
+    scoreToWin = SETTINGS.gameplay.scoreToWin;
+    applyKeyboardSpeed();
+    applyAssistAndHeights();
+    updateFTLabel();
+    fullReset();
+  } else {
+    aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
+    scoreToWin = SETTINGS.gameplay.scoreToWin;
+    applyKeyboardSpeed();
+    applyAssistAndHeights();
+    updateFTLabel();
   }
 
-  if (controlsChanged) {
+  if (controlsDiff) {
     invertY = !!SETTINGS.controls.invertY;
     recomputeControlPermissions(true);
   }
 }
 
-settingsBtn.addEventListener('click', () => openSettings('controls'));
+settingsBtn.addEventListener('click', () => openSettings('gameplay'));
 settingsClose.addEventListener('click', closeSettings);
 settingsCancel.addEventListener('click', closeSettings);
 settingsBackdrop.addEventListener('click', closeSettings);
-
 settingsApply.addEventListener('click', () => {
   const next = gatherSettingsFromUI();
   applySettings(next, { confirmRestartIfNeeded: true });
@@ -575,18 +664,10 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !settingsModal.classList.contains('hidden')) closeSettings();
 });
 
-function initThemeFromSettings() {
-  applyThemeMode(SETTINGS.display.themeMode);
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    if (SETTINGS.display.themeMode === 'system') applyThemeMode('system');
-  });
-}
-
 function recomputeControlPermissions(showToastOnChange = false) {
-  const prev = { allowMouse, allowKeyboard, allowTouch };
   const scheme = SETTINGS.controls.scheme;
-  allowMouse = allowKeyboard = allowTouch = false;
 
+  allowMouse = allowKeyboard = allowTouch = false;
   if (scheme === 'mouse') { allowMouse = true; }
   else if (scheme === 'keyboard') { allowKeyboard = true; }
   else if (scheme === 'touch') { allowTouch = true; }
@@ -595,11 +676,9 @@ function recomputeControlPermissions(showToastOnChange = false) {
     else { allowMouse = true; allowKeyboard = true; }
   }
 
-  invertY = !!SETTINGS.controls.invertY;
-
   if (showToastOnChange) {
     if (allowKeyboard && allowMouse) showToast('Control: Auto (Keyboard + Mouse)');
-    else if (allowTouch) showToast('Control: Touch (drag to move the paddle)');
+    else if (allowTouch) showToast('Control: Touch (drag to move paddle)');
     else if (allowKeyboard) showToast('Control: Keyboard active (W/S or ↑/↓)');
     else if (allowMouse) showToast('Control: Mouse active');
   }
@@ -618,10 +697,11 @@ function showToast(msg) {
   initThemeFromSettings();
   hiDPIEnabled = !!SETTINGS.display.hiDPI;
   resizeCanvas();
+  applyDifficulty();
+  applyKeyboardSpeed();
+  scoreToWin = SETTINGS.gameplay.scoreToWin;
   centerEntities();
   resetBall(true);
-  aiCfg = DIFFICULTIES[SETTINGS.gameplay.difficulty];
-  scoreToWin = SETTINGS.gameplay.scoreToWin;
   updateFTLabel();
   recomputeControlPermissions(true);
   updateControls();

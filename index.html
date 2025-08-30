@@ -114,6 +114,49 @@
           </select>
         </div>
 
+        <div class="form-row">
+          <label for="optPaddleSpeed">Paddle Speed</label>
+          <select id="optPaddleSpeed">
+            <option value="slow">Slow</option>
+            <option value="normal" selected>Normal</option>
+            <option value="fast">Fast</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="optBallCurve">Ball Speed Curve</label>
+          <select id="optBallCurve">
+            <option value="static">Static</option>
+            <option value="gradual" selected>Gradual (accelerate per hit)</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="optBallAccel">Accel per hit</label>
+          <input type="range" id="optBallAccel" min="0" max="0.15" step="0.01" value="0.05" />
+        </div>
+
+        <div class="form-row">
+          <label class="switch">
+            <input type="checkbox" id="optSpinEnabled" checked />
+            <span>Enable Spin/English</span>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label for="optSpinPower">Spin intensity</label>
+          <input type="range" id="optSpinPower" min="0" max="1" step="0.01" value="0.6" />
+        </div>
+
+        <div class="form-row">
+          <label for="optAssist">Assist Mode</label>
+          <select id="optAssist">
+            <option value="off" selected>Off (classic)</option>
+            <option value="light">Light assist</option>
+            <option value="strong">Strong assist</option>
+          </select>
+        </div>
+
         <p class="hint small" id="gameplayLockHint">Changing gameplay settings will restart the match.</p>
       </section>
 
