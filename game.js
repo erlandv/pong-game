@@ -453,7 +453,11 @@ function draw(){
 
   drawRect(PADDLE_MARGIN, playerY, PADDLE_WIDTH, PLAYER_PADDLE_HEIGHT, playerColor);
   drawRect(cssW - PADDLE_MARGIN - PADDLE_WIDTH, aiY, PADDLE_WIDTH, AI_PADDLE_HEIGHT, aiColor);
-  drawRect(ballX, ballY, BALL_SIZE, BALL_SIZE, ballColor);
+
+  ctx.fillStyle = ballColor;
+  ctx.beginPath();
+  ctx.arc(ballX + BALL_SIZE / 2, ballY + BALL_SIZE / 2, BALL_SIZE / 2, 0, Math.PI * 2);
+  ctx.fill();
 
   drawText(playerScore, cssW / 2 - 60, 50, 36, 'right');
   drawText(aiScore,     cssW / 2 + 60, 50, 36, 'left');
