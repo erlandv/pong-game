@@ -279,9 +279,9 @@ function drawHeatmap(cvs, bins, colorA='#3b82f6', colorB='#3dd9ff'){
   }
 
   c.fillStyle = cssVar('--muted') || '#94a3b8';
-  c.font = '10px Inter, system-ui, -apple-system, Segoe UI, Roboto';
-  c.fillText('↑', 4, 12);
-  c.fillText('↓', 4, h-4);
+  c.font = '10px system-ui, -apple-system, Segoe UI, Roboto';
+  c.fillText('Top', 4, 12);
+  c.fillText('Bottom', 4, h-4);
 }
 
 export function drawHeatmaps(){
