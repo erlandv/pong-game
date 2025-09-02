@@ -18,6 +18,7 @@
   --radius-lg: 10px;
   --shadow: 0 0 0 2px #000 inset, 0 2px 0 #000, 0 0 0 1px var(--outline);
   --canvas-bg: #0a0c10;
+  --ball-color: #fff;
   --net-color: #273041;
   --transition: all .12s steps(2, end);
   --focus-ring: 0 0 0 3px rgba(0, 224, 96, .35);
@@ -38,6 +39,7 @@
   --warning: #846a00;
   --error: #8b1a1a;
   --canvas-bg: #cddf9b;
+  --ball-color: #000;
   --net-color: #95aa63
 }
 
@@ -334,6 +336,7 @@ body {
 .ai-label,
 .player-label {
   font-size: 26px;
+  color: #fff;
   font-weight: 700;
   opacity: .8;
   letter-spacing: 1px
@@ -341,6 +344,7 @@ body {
 
 .vs-separator {
   font-size: 26px;
+  color: #fff;
   font-weight: 700;
   opacity: .7;
   margin-top: 18%;
@@ -377,12 +381,6 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px
-}
-
-@keyframes blink {
-  50% {
-    opacity: .35
-  }
 }
 
 .stats {
