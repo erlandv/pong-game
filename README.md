@@ -2,7 +2,7 @@
 
 A classic, web-based PONG game built with plain HTML, CSS, and JavaScript. Play as the left paddle against an AI opponent with multiple difficulty levels, customizable settings, sound effects, and detailed gameplay stats.
 
-![Screenshot](screenshot.png)
+![Screenshot](screenshot.webp)
 
 ## Features
 
