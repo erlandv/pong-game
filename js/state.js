@@ -19,6 +19,7 @@ export const dom = {
   overlay: document.getElementById('resultOverlay'),
   playerResultEl: document.getElementById('playerResult'),
   aiResultEl: document.getElementById('aiResult'),
+  opponentNameEl: document.getElementById('opponentName'),
 
   statRally: document.getElementById('statRally'),
   statMaxRally: document.getElementById('statMaxRally'),
@@ -38,6 +39,7 @@ export const dom = {
 
   heatCanvasP: document.getElementById('heatPlayer'),
   heatCanvasA: document.getElementById('heatAI'),
+  heatAILabel: document.getElementById('heatAILabel'),
 
   settingsModal: document.getElementById('settingsModal'),
   settingsBackdrop: document.getElementById('settingsBackdrop'),
@@ -55,6 +57,7 @@ export const dom = {
   gameplayLockHint: document.getElementById('gameplayLockHint'),
 
   optDifficulty: document.getElementById('optDifficulty'),
+  optGameMode: document.getElementById('optGameMode'),
   optScore: document.getElementById('optScore'),
   optPaddleSpeed: document.getElementById('optPaddleSpeed'),
   optBallCurve: document.getElementById('optBallCurve'),
@@ -65,6 +68,7 @@ export const dom = {
 
   ctrlSchemeRadios: Array.from(document.querySelectorAll('input[name="ctrlScheme"]')),
   optInvertY: document.getElementById('optInvertY'),
+  optGamepad: document.getElementById('optGamepad'),
 
   optSfx: document.getElementById('optSfx'),
   optVolume: document.getElementById('optVolume'),
@@ -96,9 +100,12 @@ export const runtime = {
   allowMouse: false,
   allowKeyboard: false,
   allowTouch: false,
+  allowGamepad: false,
   invertY: !!SETTINGS.controls.invertY,
   pressed: { up: false, down: false },
+  pressed2: { up: false, down: false },
   touchActive: false,
+  touchPointers: {},
 
   // trail
   TRAIL_LEN: 14,

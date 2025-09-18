@@ -4,7 +4,7 @@ import {
   centerEntities, resetBall, resizeCanvas, gameLoop, updateKPIDOM, drawHeatmaps,
   updateFTLabel, updateStatsDOM, updateStatsDOMTime, syncScoreDOM
 } from './engine.js';
-import { initThemeFromSettings, recomputeControlPermissions } from './ui.js';
+import { initThemeFromSettings, recomputeControlPermissions, syncModeLabels } from './ui.js';
 
 (function boot(){
   initThemeFromSettings();
@@ -22,5 +22,6 @@ import { initThemeFromSettings, recomputeControlPermissions } from './ui.js';
   updateKPIDOM();
   drawHeatmaps();
   syncScoreDOM();
+  syncModeLabels();
   requestAnimationFrame(gameLoop);
 })();

@@ -335,6 +335,43 @@ export function update(dt){
     }
   }
 
+  // 2P: keyboard for P2 (I/K)
+  if (SETTINGS.gameplay.mode === '2p' && runtime.allowKeyboard){
+    let dir2 = 0;
+    if (runtime.pressed2.up) dir2 -= 1;
+    if (runtime.pressed2.down) dir2 += 1;
+    let eff = dir2;
+    if (runtime.invertY) eff *= -1;
+    if (eff !== 0){
+      runtime.aiY += eff * runtime.KEYBOARD_PADDLE_SPEED * dt;
+      runtime.aiY = clamp(runtime.aiY, 0, runtime.cssH - runtime.AI_PADDLE_HEIGHT);
+    }
+  }
+
+  // Gamepad polling (axes[1])
+  if (SETTINGS.controls.gamepad && runtime.allowGamepad && typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function'){
+    const pads = navigator.getGamepads() || [];
+    const active = [];
+    for (let i=0;i<pads.length;i++){ const p = pads[i]; if (p && p.connected) active.push(p); }
+    const dead = 0.12;
+    const speed = runtime.KEYBOARD_PADDLE_SPEED;
+    const axisFor = (p) => (p && p.axes && p.axes.length>1) ? p.axes[1] : 0;
+    const a1 = active[0] || null;
+    const a2 = active[1] || null;
+    let v1 = axisFor(a1) || 0;
+    let v2 = axisFor(a2) || 0;
+    if (Math.abs(v1) > dead){
+      let dir = v1;
+      if (runtime.invertY) dir *= -1;
+      runtime.playerY = clamp(runtime.playerY + dir * speed * dt, 0, runtime.cssH - runtime.PLAYER_PADDLE_HEIGHT);
+    }
+    if (SETTINGS.gameplay.mode === '2p' && Math.abs(v2) > dead){
+      let dir2 = v2;
+      if (runtime.invertY) dir2 *= -1;
+      runtime.aiY = clamp(runtime.aiY + dir2 * speed * dt, 0, runtime.cssH - runtime.AI_PADDLE_HEIGHT);
+    }
+  }
+
   runtime.ballX += runtime.ballSpeedX * dt;
   runtime.ballY += runtime.ballSpeedY * dt;
 
@@ -438,20 +475,22 @@ export function update(dt){
     resetBall(false);
   }
 
-  // AI move
-  runtime.aiRecalcCooldown -= dt;
-  if (runtime.aiRecalcCooldown <= 0){
-    aiUpdateTarget();
-    runtime.aiRecalcCooldown = runtime.aiReactionDelay;
-  }
-  const aiCenter = runtime.aiY + runtime.AI_PADDLE_HEIGHT / 2;
-  const delta = runtime.aiTargetY - aiCenter;
+  // AI move (skip when 2P)
+  if (SETTINGS.gameplay.mode !== '2p'){
+    runtime.aiRecalcCooldown -= dt;
+    if (runtime.aiRecalcCooldown <= 0){
+      aiUpdateTarget();
+      runtime.aiRecalcCooldown = runtime.aiReactionDelay;
+    }
+    const aiCenter = runtime.aiY + runtime.AI_PADDLE_HEIGHT / 2;
+    const delta = runtime.aiTargetY - aiCenter;
 
-  if (Math.abs(delta) > runtime.aiError){
-    const step = Math.sign(delta) * Math.min(Math.abs(delta), runtime.aiSpeed * dt);
-    runtime.aiY += step;
+    if (Math.abs(delta) > runtime.aiError){
+      const step = Math.sign(delta) * Math.min(Math.abs(delta), runtime.aiSpeed * dt);
+      runtime.aiY += step;
+    }
+    runtime.aiY = clamp(runtime.aiY, 0, runtime.cssH - runtime.AI_PADDLE_HEIGHT);
   }
-  runtime.aiY = clamp(runtime.aiY, 0, runtime.cssH - runtime.AI_PADDLE_HEIGHT);
 
   runtime.prevPlayerY = runtime.playerY;
 }

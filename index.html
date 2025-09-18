@@ -120,7 +120,7 @@
               </div>
               <div class="vs-separator">VS</div>
               <div class="side side-ai">
-                <div class="ai-label">AI</div>
+                <div class="ai-label" id="opponentName">AI</div>
                 <div id="aiResult" class="badge">LOSE</div>
               </div>
             </div>
@@ -218,7 +218,7 @@
           </div>
           <div class="heatcard">
             <div class="heat-head">
-              <span>AI Contact Heatmap</span>
+              <span id="heatAILabel">AI Contact Heatmap</span>
             </div>
             <canvas id="heatAI" class="heat" width="600" height="90"
               aria-label="Ball contact heatmap on AI paddle"></canvas>
@@ -251,6 +251,13 @@
 
       <div class="modal-content">
         <section id="panel-gameplay" class="panel active">
+          <div class="form-row">
+            <label for="optGameMode">Game Mode</label>
+            <select id="optGameMode">
+              <option value="vsai" selected>vs AI</option>
+              <option value="2p">2 Players (Local)</option>
+            </select>
+          </div>
           <div class="form-row">
             <label for="optDifficulty">Difficulty</label>
             <select id="optDifficulty">
@@ -338,6 +345,13 @@
 
           <div class="form-row">
             <label class="switch">
+              <input type="checkbox" id="optGamepad" />
+              <span class="switch-label">Gamepad Support</span>
+            </label>
+          </div>
+
+          <div class="form-row">
+            <label class="switch">
               <input type="checkbox" id="optInvertY" />
               <span class="switch-label">Invert Vertical Axis</span>
             </label>
@@ -361,6 +375,10 @@
               <div class="key-hint">
                 <kbd>W</kbd><kbd>S</kbd> or <kbd>↑</kbd><kbd>↓</kbd>
                 <span>Move Paddle</span>
+              </div>
+              <div class="key-hint">
+                <kbd>I</kbd><kbd>K</kbd>
+                <span>P2 Paddle (2P mode)</span>
               </div>
             </div>
           </div>

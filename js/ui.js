@@ -25,6 +25,12 @@ export function showToast(msg) {
 }
 function preferTouchDevice() { return 'ontouchstart' in window || window.matchMedia('(pointer: coarse)').matches; }
 
+// ---------- Labels (opponent/heatmap) ----------
+export function syncModeLabels() {
+  if (dom.opponentNameEl) dom.opponentNameEl.textContent = (SETTINGS.gameplay.mode === '2p') ? 'P2' : 'AI';
+  if (dom.heatAILabel) dom.heatAILabel.textContent = (SETTINGS.gameplay.mode === '2p') ? 'P2 Contact Heatmap' : 'AI Contact Heatmap';
+}
+
 // ---------- Audio ----------
 export function ensureAudio() {
   if (!SETTINGS.audio.sfx) return;
@@ -86,11 +92,14 @@ export function recomputeControlPermissions(showToastOnChange = false) {
   else if (scheme === 'touch') { runtime.allowTouch = true; }
   else { if (preferTouchDevice()) { runtime.allowTouch = true; } else { runtime.allowMouse = true; runtime.allowKeyboard = true; } }
 
+  runtime.allowGamepad = !!SETTINGS.controls.gamepad;
+
   if (showToastOnChange) {
     if (runtime.allowKeyboard && runtime.allowMouse) showToast('Control: Auto (Keyboard + Mouse)');
     else if (runtime.allowTouch) showToast('Control: Touch (drag to move paddle)');
     else if (runtime.allowKeyboard) showToast('Control: Keyboard active (W/S or ↑/↓)');
     else if (runtime.allowMouse) showToast('Control: Mouse active');
+    if (runtime.allowGamepad) showToast('Gamepad enabled');
   }
 }
 
@@ -147,16 +156,25 @@ dom.canvas.addEventListener('pointerdown', (e) => {
   runtime.touchActive = true;
   dom.canvas.setPointerCapture(e.pointerId);
   ensureAudio();
+  const rect = dom.canvas.getBoundingClientRect();
+  const mid = rect.left + rect.width / 2;
+  const side = (e.clientX < mid) ? 'left' : 'right';
+  runtime.touchPointers[e.pointerId] = side;
 });
 dom.canvas.addEventListener('pointermove', (e) => {
   if (!runtime.allowTouch || !runtime.touchActive) return;
   const rect = dom.canvas.getBoundingClientRect();
   let y = e.clientY - rect.top;
   if (runtime.invertY) y = runtime.cssH - y;
-  runtime.playerY = clamp(y - runtime.PLAYER_PADDLE_HEIGHT / 2, 0, runtime.cssH - runtime.PLAYER_PADDLE_HEIGHT);
+  const side = runtime.touchPointers[e.pointerId] || 'left';
+  if (SETTINGS.gameplay.mode === '2p' && side === 'right') {
+    runtime.aiY = clamp(y - runtime.AI_PADDLE_HEIGHT / 2, 0, runtime.cssH - runtime.AI_PADDLE_HEIGHT);
+  } else {
+    runtime.playerY = clamp(y - runtime.PLAYER_PADDLE_HEIGHT / 2, 0, runtime.cssH - runtime.PLAYER_PADDLE_HEIGHT);
+  }
 });
-dom.canvas.addEventListener('pointerup', () => { if (!runtime.allowTouch) return; runtime.touchActive = false; });
-dom.canvas.addEventListener('pointercancel', () => { if (!runtime.allowTouch) return; runtime.touchActive = false; });
+dom.canvas.addEventListener('pointerup', (e) => { if (!runtime.allowTouch) return; runtime.touchActive = false; delete runtime.touchPointers[e.pointerId]; });
+dom.canvas.addEventListener('pointercancel', (e) => { if (!runtime.allowTouch) return; runtime.touchActive = false; delete runtime.touchPointers[e.pointerId]; });
 
 // keyboard
 document.addEventListener('keydown', (e) => {
@@ -167,6 +185,10 @@ document.addEventListener('keydown', (e) => {
   if (runtime.allowKeyboard) {
     if (e.code === 'ArrowUp' || e.code === 'KeyW') { runtime.pressed.up = true; e.preventDefault(); if (!keyboardToastShown) { showToast('Keyboard active: W/S or ↑/↓ · Enter=Start · P=Pause · R=Reset'); keyboardToastShown = true; } }
     if (e.code === 'ArrowDown' || e.code === 'KeyS') { runtime.pressed.down = true; e.preventDefault(); if (!keyboardToastShown) { showToast('Keyboard active: W/S or ↑/↓ · Enter=Start · P=Pause · R=Reset'); keyboardToastShown = true; } }
+    if (SETTINGS.gameplay.mode === '2p'){
+      if (e.code === 'KeyI') { runtime.pressed2.up = true; e.preventDefault(); }
+      if (e.code === 'KeyK') { runtime.pressed2.down = true; e.preventDefault(); }
+    }
   }
 
   if (e.code === 'Enter') {
@@ -197,6 +219,10 @@ document.addEventListener('keyup', (e) => {
   if (!runtime.allowKeyboard) return;
   if (e.code === 'ArrowUp' || e.code === 'KeyW') runtime.pressed.up = false;
   if (e.code === 'ArrowDown' || e.code === 'KeyS') runtime.pressed.down = false;
+  if (SETTINGS.gameplay.mode === '2p'){
+    if (e.code === 'KeyI') runtime.pressed2.up = false;
+    if (e.code === 'KeyK') runtime.pressed2.down = false;
+  }
 });
 
 // buttons
@@ -250,6 +276,7 @@ export function openSettings(initialTab = 'gameplay') {
   dom.tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === initialTab));
   Object.entries(dom.panels).forEach(([k, el]) => el.classList.toggle('active', k === initialTab));
 
+  if (dom.optGameMode) dom.optGameMode.value = SETTINGS.gameplay.mode || 'vsai';
   dom.optDifficulty.value = SETTINGS.gameplay.difficulty;
   dom.optScore.value = String(SETTINGS.gameplay.scoreToWin);
   dom.optPaddleSpeed.value = SETTINGS.gameplay.paddleSpeed;
@@ -261,6 +288,7 @@ export function openSettings(initialTab = 'gameplay') {
 
   dom.ctrlSchemeRadios.forEach(r => r.checked = (r.value === SETTINGS.controls.scheme));
   dom.optInvertY.checked = !!SETTINGS.controls.invertY;
+  if (dom.optGamepad) dom.optGamepad.checked = !!SETTINGS.controls.gamepad;
 
   dom.optSfx.checked = !!SETTINGS.audio.sfx;
   dom.optVolume.value = String(SETTINGS.audio.volume);
@@ -290,6 +318,7 @@ export function closeSettings() { dom.settingsModal.classList.add('hidden'); }
 export function gatherSettingsFromUI() {
   const next = structuredClone(SETTINGS);
 
+  next.gameplay.mode = dom.optGameMode?.value || 'vsai';
   next.gameplay.difficulty = dom.optDifficulty.value;
   next.gameplay.scoreToWin = parseInt(dom.optScore.value, 10) || 5;
   next.gameplay.paddleSpeed = dom.optPaddleSpeed.value;
@@ -302,6 +331,7 @@ export function gatherSettingsFromUI() {
   const cs = dom.ctrlSchemeRadios.find(r => r.checked)?.value || 'auto';
   next.controls.scheme = cs;
   next.controls.invertY = !!dom.optInvertY.checked;
+  next.controls.gamepad = !!dom.optGamepad?.checked;
 
   next.audio.sfx = !!dom.optSfx.checked;
   next.audio.volume = parseFloat(dom.optVolume.value);
@@ -314,7 +344,8 @@ export function gatherSettingsFromUI() {
 }
 
 function gameplayChanged(a, b) {
-  return a.gameplay.difficulty !== b.gameplay.difficulty ||
+  return a.gameplay.mode !== b.gameplay.mode ||
+    a.gameplay.difficulty !== b.gameplay.difficulty ||
     a.gameplay.scoreToWin !== b.gameplay.scoreToWin ||
     a.gameplay.paddleSpeed !== b.gameplay.paddleSpeed ||
     a.gameplay.ballCurve !== b.gameplay.ballCurve ||
@@ -323,7 +354,7 @@ function gameplayChanged(a, b) {
     Math.abs(a.gameplay.spinPower - b.gameplay.spinPower) > 1e-6 ||
     a.gameplay.assist !== b.gameplay.assist;
 }
-function controlsChanged(a, b) { return a.controls.scheme !== b.controls.scheme || a.controls.invertY !== b.controls.invertY; }
+function controlsChanged(a, b) { return a.controls.scheme !== b.controls.scheme || a.controls.invertY !== b.controls.invertY || !!a.controls.gamepad !== !!b.controls.gamepad; }
 function audioChanged(a, b) { return a.audio.sfx !== b.audio.sfx || Math.abs(a.audio.volume - b.audio.volume) > 1e-6; }
 function displayChanged(a, b) { return a.display.themeMode !== b.display.themeMode || a.display.hiDPI !== b.display.hiDPI || a.display.trail !== b.display.trail; }
 
@@ -375,6 +406,9 @@ export function applySettings(next, { confirmRestartIfNeeded = true } = {}) {
     updateFTLabel();
   }
 
+  // Update labels (AI/P2) when mode changes
+  try { syncModeLabels(); } catch {}
+
   if (controlsDiff) {
     runtime.invertY = !!SETTINGS.controls.invertY;
     recomputeControlPermissions(true);
@@ -419,4 +453,12 @@ dom.themeToggle?.addEventListener('click', () => {
   SETTINGS.display.themeMode = next;
   saveSettings(SETTINGS);
   applyThemeMode(SETTINGS.display.themeMode, dom.htmlRoot, dom.themeToggle);
+});
+
+// Gamepad connection toasts
+window.addEventListener('gamepadconnected', (e) => {
+  if (SETTINGS.controls.gamepad) showToast(`Gamepad connected: ${e.gamepad.id}`);
+});
+window.addEventListener('gamepaddisconnected', () => {
+  if (SETTINGS.controls.gamepad) showToast('Gamepad disconnected');
 });

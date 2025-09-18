@@ -18,6 +18,7 @@ export const NUM_BINS = 12;
 
 export const DEFAULT_SETTINGS = {
   gameplay: {
+    mode: 'vsai',
     difficulty: 'medium',
     scoreToWin: 5,
     paddleSpeed: 'normal',
@@ -29,7 +30,7 @@ export const DEFAULT_SETTINGS = {
   },
   audio: { sfx: true, volume: 0.7 },
   display: { themeMode: 'system', hiDPI: true, trail: 'medium' },
-  controls: { scheme: 'auto', invertY: false },
+  controls: { scheme: 'auto', invertY: false, gamepad: false },
 };
 
 export const DEFAULT_HISTORY = {
